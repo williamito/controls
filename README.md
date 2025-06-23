@@ -1,13 +1,20 @@
 # Robot Kinematics Module
 
-This module provides an implementation of **forward and inverse kinematics** for robotic manipulators exploiting Denavit-Hartenberg (DH) parameters. It includes pose interpolation (position + orientation) and DLS Jacobian method for inverse kinematics.
+This module provides an implementation of forward and inverse kinematics for robotic manipulators using Denavit–Hartenberg (DH) parameters. It supports:
+
+- Forward kinematics
+- Inverse kinematics via Damped Least Squares Inverse Jacobian
+- Pose interpolation (position + orientation) using SLERP
+
+An example configuration is included for the SO100 robotic arm from [LeRobot](https://github.com/huggingface/lerobot), but the module is adaptable to any N-dof robot defined by standard DH parameters.
 
 ---
 
 ## Classes
 
 ### `Robot`
-Defines a robot model from a predefined set (`"so100"`, `"koch"`, `"moss"`), with attributes:
+Defines a robot model from a predefined set (e.g. `"so100"`), with attributes:
+
 - `dh_table`: DH table as a list of $[ \theta, d, a, \alpha ]$ entries.
 - `mech_joint_limits_low`: mechanical joint position limits lower bound
 - `mech_joint_limits_up`: mechanical joint position limits upper bound
@@ -26,7 +33,7 @@ Collection of static methods:
 - `calc_ang_err(T1, T2)`: angular error.
 - `inv_homog_mat(T)`: efficiently inverts a 4x4 transformation.
 - `calc_geom_jac(...)`: compute geometrical Jacobian wrt base-frame.
-- `dls_pseudoinv(...)`: Damped Least Squares pseudoinverse.
+- `dls_right_pseudoinv(...)`: Damped Least Squares pseudoinverse.
 
 ---
 
@@ -41,7 +48,7 @@ $$
 $$
 
 #### `inverse_kinematics(...)`
-Computes inverse kinematics using iterative pose interpolation and transpose Jacobian method. Optional orientation tracking.
+Computes inverse kinematics using iterative pose interpolation and inverse Jacobian method. Optional orientation tracking.
 
 #### Internal helpers:
 - `_forward_kinematics_baseTn`: computes fkine from base-frame to n-frame.
@@ -91,25 +98,23 @@ $$
 
 ---
 
-## Example (in `__main__`)
+## Example (in `main.py`)
 
 - Initializes the `"so100"` robot model.
-- **Transform mechanical angles in DH angles**
+- Transform mechanical angles in DH angles
 - Define a goal pose worldTtool.
 - Solves IK with only position tracking.
 - Prints joint angles and final pose with direct kinematics.
-- **Transform DH angles in mechanical angles**
+- Transform DH angles in mechanical angles
 - Check mechanical angles are within their physical limits
 
 ---
 
-## Contributions
-
-This module is designed to compute both **forward and inverse kinematics** accurately, and it is easily extensible to robots with more degrees of freedom.
+## Full contributions
 
 - Forward kinematics using DH tables
 - Jacobian computation using DH tables.
-- Inverse kinematics using Jacobian transpose and dump-least square method to avoid singularities.
+- Inverse kinematics using Jacobian and dump-least square method to avoid singularities.
 - Pose interpolation: linear (position) + SLERP (orientation)
 - DH angles to mechanical angles conversion (and viceversa).
 - Out of Bound joint position limits checker
