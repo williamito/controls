@@ -50,6 +50,16 @@ $$
 #### `inverse_kinematics(...)`
 Computes inverse kinematics using iterative pose interpolation and inverse Jacobian method. Optional orientation tracking.
 
+$$
+q_{k+1} = q_k + J^{\dagger} \cdot K \cdot e
+$$
+
+dove:
+- $q_k$: oint positions
+- $K$: scalar gain
+- $J^{\dagger}$: right pseudo-inverse of the Jacobian
+- $e$: Cartesian error
+
 #### Internal helpers:
 - `_forward_kinematics_baseTn`: computes fkine from base-frame to n-frame.
 - `_inverse_kinematics_step_baseTn`: performs one step of iterative IK.
