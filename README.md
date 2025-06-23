@@ -54,10 +54,11 @@ $$
 q_{k+1} = q_k + J^{\dagger} \cdot K \cdot e
 $$
 
-dove:
-- $q_k$: oint positions
+Where:
+
+- $q_k$: joint positions
 - $K$: scalar gain
-- $J^{\dagger}$: right pseudo-inverse of the Jacobian
+- $J^{\dagger}$: pseudo-inverse of the Jacobian
 - $e$: Cartesian error
 
 #### Internal helpers:
