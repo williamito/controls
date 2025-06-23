@@ -2,9 +2,9 @@
 
 This module provides an implementation of forward and inverse kinematics for robotic manipulators using Denavit–Hartenberg (DH) parameters. It supports:
 
-- Forward kinematics
-- Inverse kinematics via Damped Least Squares Inverse Jacobian
-- Pose interpolation (position + orientation) using SLERP
+- **Forward kinematics**
+- **Inverse kinematics via Damped Least Squares Inverse Jacobian**
+- **Pose interpolation (position + orientation) using SLERP**
 
 An example configuration is included for the SO100 robotic arm from [LeRobot](https://github.com/huggingface/lerobot), but the module is adaptable to any N-dof robot defined by standard DH parameters.
 
