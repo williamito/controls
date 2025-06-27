@@ -129,3 +129,7 @@ $$
 - Pose interpolation: linear (position) + SLERP (orientation)
 - DH angles to mechanical angles conversion (and viceversa).
 - Out of Bound joint position limits checker
+
+## License
+
+This project is licensed under the MIT License – see the [LICENSE](https://github.com/Argo-Robot/kinematics/blob/main/LICENSE) file for details.
