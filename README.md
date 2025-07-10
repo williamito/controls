@@ -1,4 +1,4 @@
-# Control & Kinematics
+# Kinematics & Dynamics
 
 This library provides an implementation of kinematics and dynamics modules for robotic manipulators using Denavit–Hartenberg (DH) parameters. It supports:
 
