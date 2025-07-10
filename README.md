@@ -200,8 +200,14 @@ Express a Cartesian force $F_{ext} \in \mathbb{R}^6$ from a source frame to a ta
 - DH angles to mechanical angles conversion (and viceversa)
 - Out of Bound joint position limits checker
 
+<<<<<<< HEAD
 ### Dynamics:
 
 - Inverse Dynamics via Recursive Newton-Euler equations
 - Estimate M, C, g of the full robot dynamic model
 - Transform forces between frames
+=======
+## License
+
+This project is licensed under the MIT License – see the [LICENSE](https://github.com/Argo-Robot/kinematics/blob/main/LICENSE) file for details.
+>>>>>>> 55ecb4a02e6c1ea9491cccd8e87ea685bd39ecbe
