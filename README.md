@@ -46,6 +46,8 @@ Collection of static methods:
 
 Main class for computing kinematics:
 
+---
+
 #### `forward_kinematics(...)`
 
 Returns the tool pose in the world frame:
@@ -53,6 +55,8 @@ Returns the tool pose in the world frame:
 $$
 ^{world}T_{tool} = ^{world}T_{base} \cdot ^{base}T_n(q) \cdot ^nT_{tool}
 $$
+
+---
 
 #### `inverse_kinematics(...)`
 Computes inverse kinematics using iterative pose interpolation and inverse Jacobian method. Optional orientation tracking.
@@ -67,6 +71,8 @@ Where:
 - $K$: scalar gain
 - $J^{\dagger}$: right pseudo-inverse of the Jacobian
 - $e$: Cartesian error
+
+---
 
 #### Internal helpers:
 
@@ -153,7 +159,6 @@ Returns the **gravity torque vector** $G(q)$. It captures torques at each joint 
 
 Returns the **Coriolis and centrifugal forces** contribution $C(q, \dot{q})\dot{q}$
 
-
 ---
 
 #### `get_robot_model(...)`
@@ -200,14 +205,12 @@ Express a Cartesian force $F_{ext} \in \mathbb{R}^6$ from a source frame to a ta
 - DH angles to mechanical angles conversion (and viceversa)
 - Out of Bound joint position limits checker
 
-<<<<<<< HEAD
 ### Dynamics:
 
 - Inverse Dynamics via Recursive Newton-Euler equations
 - Estimate M, C, g of the full robot dynamic model
 - Transform forces between frames
-=======
+
 ## License
 
 This project is licensed under the MIT License – see the [LICENSE](https://github.com/Argo-Robot/kinematics/blob/main/LICENSE) file for details.
->>>>>>> 55ecb4a02e6c1ea9491cccd8e87ea685bd39ecbe
