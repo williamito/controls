@@ -1,10 +1,11 @@
-# Robot Kinematics Module
+# Control & Kinematics
 
-This module provides an implementation of forward and inverse kinematics for robotic manipulators using Denavit–Hartenberg (DH) parameters. It supports:
+This library provides an implementation of kinematics and dynamics modules for robotic manipulators using Denavit–Hartenberg (DH) parameters. It supports:
 
 - **Forward kinematics**
 - **Inverse kinematics via Damped Least Squares Inverse Jacobian**
 - **Pose interpolation (position + orientation) using SLERP**
+- **Full Inverse Dynamics via Recursive Newton-Euler equations**
 
 An example configuration is included for the SO100 robotic arm from [LeRobot](https://github.com/huggingface/lerobot), but the module is adaptable to any N-dof robot defined by standard DH parameters.
 
@@ -13,9 +14,12 @@ An example configuration is included for the SO100 robotic arm from [LeRobot](ht
 ## Classes
 
 ### `Robot`
-Defines a robot model from a predefined set (e.g. `"so100"`), with attributes:
+Defines a robot model from a predefined set (e.g. `"so100"`), with attributes and methods:
 
 - `dh_table`: DH table as a list of $[ \theta, d, a, \alpha ]$ entries.
+- `link_mass`: link mass.
+- `link_com`: link CoM wrt frame $i$.
+- `link_inertia`: link inertia wrt frame $i$.
 - `mech_joint_limits_low`: mechanical joint position limits lower bound
 - `mech_joint_limits_up`: mechanical joint position limits upper bound
 - `worldTbase`: 4x4 homogeneous transform.
@@ -33,14 +37,17 @@ Collection of static methods:
 - `calc_ang_err(T1, T2)`: angular error.
 - `inv_homog_mat(T)`: efficiently inverts a 4x4 transformation.
 - `calc_geom_jac(...)`: compute geometrical Jacobian wrt base-frame.
+- `calc_geom_jac_n(...)`: compute geometrical jacobian wrt n-frame.
 - `dls_right_pseudoinv(...)`: Damped Least Squares pseudoinverse.
 
 ---
 
 ### `RobotKinematics`
+
 Main class for computing kinematics:
 
-#### `forward_kinematics(robot, q)`
+#### `forward_kinematics(...)`
+
 Returns the tool pose in the world frame:
 
 $$
@@ -58,10 +65,11 @@ Where:
 
 - $q_k$: joint positions
 - $K$: scalar gain
-- $J^{\dagger}$: pseudo-inverse of the Jacobian
+- $J^{\dagger}$: right pseudo-inverse of the Jacobian
 - $e$: Cartesian error
 
 #### Internal helpers:
+
 - `_forward_kinematics_baseTn`: computes fkine from base-frame to n-frame.
 - `_inverse_kinematics_step_baseTn`: performs one step of iterative IK.
 - `_interp_init`, `_interp_execute`: Pose interpolation (position + orientation).
@@ -109,23 +117,91 @@ $$
 
 ---
 
-## Example (in `main.py`)
+### `RobotDynamics`
 
-- Initializes the `"so100"` robot model.
+Main class for computing **inverse dynamics** and retrieving dynamic model components of a serial-link manipulator:
+
+---
+
+#### `inverse_dynamics(...)`
+
+Computes joint torques using the **Newton-Euler recursive algorithm**:
+
+$$
+B(q)\ddot{q} + C(q, \dot{q})\dot{q} + G(q) = \tau + J^{T}F_{ext}
+$$
+
+- Performs forward and backward recursion over links
+- Returns torques at each joint
+- Supports external wrench $F_{ext}$ expressed in the last link frame
+
+---
+
+#### `get_B(...)`
+
+Computes the **inertia matrix** $B(q) \in \mathbb{R}^{n \times n}$
+
+---
+
+#### `get_G(...)`
+
+Returns the **gravity torque vector** $G(q)$. It captures torques at each joint due to the weight of the links.
+
+---
+
+#### `get_Cqdot(...)`
+
+Returns the **Coriolis and centrifugal forces** contribution $C(q, \dot{q})\dot{q}$
+
+
+---
+
+#### `get_robot_model(...)`
+
+Returns the full dynamic model components:
+
+- $B(q)$: Inertia matrix  
+- $C(q, \dot{q})\dot{q}$: Coriolis and centrifugal term  
+- $G(q)$: Gravity vector
+
+---
+
+#### `transform_force(...)`
+
+Express a Cartesian force $F_{ext} \in \mathbb{R}^6$ from a source frame to a target frame.
+
+---
+
+## Example in `main.py`
+
+- Initialize the `"so100"` robot model
 - Transform mechanical angles in DH angles
-- Define a goal pose worldTtool.
-- Solves IK with only position tracking.
-- Prints joint angles and final pose with direct kinematics.
+- Define a goal pose worldTtool
+- Solves IK with only position tracking
+- Prints joint angles and final pose with direct kinematics
 - Transform DH angles in mechanical angles
 - Check mechanical angles are within their physical limits
+
+- Initialize $q$, $\dot q$, $\ddot q$, $F_{ext}$
+- Compute corresponding joint torques
+- Compute B, C, g matrices for the dynamic model
+- Transform a force from one frame to another
 
 ---
 
 ## Full contributions
 
+### Kinematics:
+
 - Forward kinematics using DH tables
-- Jacobian computation using DH tables.
-- Inverse kinematics using Jacobian and dump-least square method to avoid singularities.
+- Jacobian computation using DH tables
+- Inverse kinematics using Jacobian and dump-least square method to avoid singularities
 - Pose interpolation: linear (position) + SLERP (orientation)
-- DH angles to mechanical angles conversion (and viceversa).
+- DH angles to mechanical angles conversion (and viceversa)
 - Out of Bound joint position limits checker
+
+### Dynamics:
+
+- Inverse Dynamics via Recursive Newton-Euler equations
+- Estimate M, C, g of the full robot dynamic model
+- Transform forces between frames
