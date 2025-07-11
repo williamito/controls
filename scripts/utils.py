@@ -235,3 +235,14 @@ class RobotUtils:
         J_pinv = np.linalg.inv(JTJ + lambda_val * np.eye(JTJ.shape[0])) @ JT  
         
         return J_pinv
+
+    @staticmethod
+    def dls_right_pseudoinv_weighted(J, W, lambda_val=0.001):
+        
+        """compute Damped Least Squares Right-Pseudo-Inverse weighted"""
+               
+        JT = J.T
+        JTJ = JT @ J
+        J_pinv = np.linalg.inv(JTJ + lambda_val * W) @ JT 
+        
+        return J_pinv
