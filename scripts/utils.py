@@ -1,85 +1,62 @@
-import copy
+from urdfpy import URDF
 import numpy as np
+import copy
 
 
 
-class Robot:
+class SO100:
     
-    # Follow this convention: theta , d, a, alpha
-    ROBOT_DH_TABLES = {
-        "so100": [
-            [0, 0.0542, 0.0304, np.pi / 2],
-            [0, 0.0, 0.116, 0.0],
-            [0, 0.0, 0.1347, 0.0],
-            [0, 0.0, 0.0, -np.pi / 2],
-            [0, 0.0609, 0.0, 0.0],  # to increase length and include also gripper: [0, 0.155, 0.0, 0.0],
-        ]
-    }
+    """Define manually robot model using DH convention (here SO100)"""
     
-    # define mass for link i (n° links = n° joints +1)
-    LINK_MASS = {
-        "so100": [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-    }
-    
-    # define COM for link i wrt origin frame i (n° links = n° joints +1)
-    LINK_COM = {
-        "so100": [
-            np.array([0.0, 0.05, 0.0]),
-            np.array([0.0, 0.05, 0.0]),
-            np.array([0.0, 0.05, 0.0]),
-            np.array([0.0, 0.05, 0.0]),
-            np.array([0.0, 0.05, 0.0]),
-            np.array([0.0, 0.05, 0.0]),
-        ]
-    } 
-    
-    # define Inertia for link i wrt origin frame i (n° links = n° joints +1)
-    LINK_INERTIA = {
-        "so100": [
-            np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-            np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]),
-            np.array([0.0, 0.0, 0.0, 0.0, 0.0542, 0.0, 0.0, 0.0, 0.0304]),
-            np.array([0.0, 0.0, 0.0, 0.0, 0.0542, 0.0, 0.0, 0.0, 0.0304]),
-            np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1347]),
-            np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1347]),
-        ]
-    }
-    
-    # mechanical joint limitis
-    MECH_JOINT_LIMITS_LOW = {"so100": np.array([-2.2000, -3.1416, 0.0000, -2.0000, -3.1416, -0.2000])}
-    MECH_JOINT_LIMITS_UP = {"so100": np.array([2.2000, 0.2000, 3.1416, 1.8000, 3.1416, 2.0000])}
-
-    # set worldTbase frame (base-frame DH aligned wrt SO100 simulator)
-    WORLD_T_TOOL = {
-        "so100": np.array([[0.0, 1.0, 0.0, 0.0], 
-                           [-1.0, 0.0, 0.0, -0.0453], 
-                           [0.0, 0.0, 1.0, 0.0647], 
-                           [0.0, 0.0, 0.0, 1.0]])
-    }
-
-    # set nTtool frame (n-frame DH aligned wrt SO100 simulator)
-    N_T_TOOL = {
-        "so100": np.array([[0.0, 0.0, -1.0, 0.0], 
-                           [1.0, 0.0, 0.0, 0.0], 
-                           [0.0, -1.0, 0.0, 0.0], 
-                           [0.0, 0.0, 0.0, 1.0]])
-    }
-
-    def __init__(self, robot_type="so100"):
+    def __init__(self):
+            
+        # Follow this convention: theta , d, a, alpha
+        self.ROBOT_DH_TABLES = [
+                [0, 0.0542, 0.0304, np.pi / 2],
+                [0, 0.0, 0.116, 0.0],
+                [0, 0.0, 0.1347, 0.0],
+                [0, 0.0, 0.0, -np.pi / 2],
+                [0, 0.0609, 0.0, 0.0],  # to increase length and include also gripper: [0, 0.155, 0.0, 0.0],
+            ]
         
-        if robot_type not in Robot.ROBOT_DH_TABLES:
-            raise ValueError(f"Unknown robot type: {robot_type}. Available: {list(Robot.ROBOT_DH_TABLES.keys())}")
-
-        # set robot model
-        self.robot_type = robot_type
-        self.dh_table = Robot.ROBOT_DH_TABLES[robot_type]
-        self.link_mass = Robot.LINK_MASS[robot_type]
-        self.link_com = Robot.LINK_COM[robot_type]
-        self.link_inertia = Robot.LINK_INERTIA[robot_type]
-        self.mech_joint_limits_low = Robot.MECH_JOINT_LIMITS_LOW[robot_type]
-        self.mech_joint_limits_up = Robot.MECH_JOINT_LIMITS_UP[robot_type]
-        self.worldTbase = Robot.WORLD_T_TOOL[robot_type]
-        self.nTtool = Robot.N_T_TOOL[robot_type]
+        # define mass for link i (n° links = n° joints +1)
+        self.LINK_MASS = np.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0]) # --> fake values
+        
+        # define COM for link i wrt origin frame i (n° links = n° joints +1)
+        self.LINK_COM = [ 
+                np.array([0.0, 0.05, 0.0]), # --> fake values
+                np.array([0.0, 0.05, 0.0]), # --> fake values
+                np.array([0.0, 0.05, 0.0]), # --> fake values
+                np.array([0.0, 0.05, 0.0]), # --> fake values
+                np.array([0.0, 0.05, 0.0]), # --> fake values
+                np.array([0.0, 0.05, 0.0]), # --> fake values
+            ]
+        
+        # define Inertia for link i wrt origin frame i (n° links = n° joints +1)
+        self.LINK_INERTIA = [
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), # --> fake values
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]), # --> fake values
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0542, 0.0, 0.0, 0.0, 0.0304]), # --> fake values
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0542, 0.0, 0.0, 0.0, 0.0304]), # --> fake values
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1347]), # --> fake values
+                np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1347]), # --> fake values
+            ]
+    
+        # mechanical joint limitis
+        self.MECH_JOINT_LIMITS_LOW = np.array([-2.2000, -3.1416, 0.0000, -2.0000, -3.1416, -0.2000])
+        self.MECH_JOINT_LIMITS_UP = np.array([2.2000, 0.2000, 3.1416, 1.8000, 3.1416, 2.0000])
+    
+        # set worldTbase frame (base-frame DH aligned wrt SO100 simulator)
+        self.WORLD_T_TOOL = np.array([[0.0, 1.0, 0.0, 0.0], 
+                                     [-1.0, 0.0, 0.0, -0.0453], 
+                                     [0.0, 0.0, 1.0, 0.0647], 
+                                     [0.0, 0.0, 0.0, 1.0]])
+    
+        # set nTtool frame (n-frame DH aligned wrt SO100 simulator)
+        self.N_T_TOOL = np.array([[0.0, 0.0, -1.0, 0.0], 
+                                  [1.0, 0.0, 0.0, 0.0], 
+                                  [0.0, -1.0, 0.0, 0.0], 
+                                  [0.0, 0.0, 0.0, 1.0]])
 
     def from_dh_to_mech(self, q_dh):
         
@@ -110,6 +87,80 @@ class Robot:
         q_dh[4] = -q_mech[4] - np.pi / 2
 
         return q_dh[:-1]  # skip last DOF because it is the gripper
+    
+    
+    
+class URDF_handler:
+    
+    """Load robot model using URDF file"""
+    
+    def __init__(self):
+        pass
+
+    def load(self, path):
+        
+        # load URDF
+        robot = URDF.load(path)
+        
+        # init
+        self.LINK_MASS = []
+        self.LINK_COM = []
+        self.LINK_INERTIA = []
+        
+        # add mass properties
+        for link in robot.links:
+            inertial = link.inertial
+            if inertial is not None:
+                self.LINK_MASS.append(inertial.mass)
+                self.LINK_COM.append(inertial.origin[:3, 3])  
+                self.LINK_INERTIA.append(inertial.inertia.flatten())
+            else:
+                self.LINK_MASS.append(0.0)
+                self.LINK_COM.append(np.zeros(3))
+                self.LINK_INERTIA.append(np.zeros(9))
+
+        # add joint limits
+        self.MECH_JOINT_LIMITS_LOW = np.array([j.limit.lower for j in robot.joints if j.joint_type != 'fixed'])
+        self.MECH_JOINT_LIMITS_UP = np.array([j.limit.upper for j in robot.joints if j.joint_type != 'fixed'])
+
+        # add world and tool transforms
+        self.WORLD_T_TOOL = np.eye(4)
+        self.N_T_TOOL = np.eye(4)
+        
+    def get_n_joints(self):
+        return len([j for j in self.robot.joints if j.joint_type != 'fixed'])
+    
+    def get_n_links(self):
+        return len(self.robot.links)
+    
+    def print_model_properties(self):
+        
+        print("Link names:")
+        for link in self.robot.links:
+            print(f" - {link.name}")
+
+        print("\nJoint names:")
+        for joint in self.robot.joints:
+            print(f" - {joint.name} ({joint.joint_type})")
+
+
+
+class Robot:
+
+    """Contains info related to the robot model (DH or URDF)"""
+    
+    def __init__(self, model, model_type = "DH"):
+        
+        # set robot model
+        self.model_type = model_type
+        self.dh_table = model.ROBOT_DH_TABLES if model_type == "DH" else None
+        self.link_mass = model.LINK_MASS
+        self.link_com = model.LINK_COM
+        self.link_inertia = model.LINK_INERTIA
+        self.mech_joint_limits_low = model.MECH_JOINT_LIMITS_LOW
+        self.mech_joint_limits_up = model.MECH_JOINT_LIMITS_UP
+        self.worldTbase = model.WORLD_T_TOOL
+        self.nTtool = model.N_T_TOOL
 
     def check_joint_limits(self, q_vec):
         
