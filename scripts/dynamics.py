@@ -1,14 +1,11 @@
 import copy
 import numpy as np
 
-from scripts.utils import *    
-    
+# from scripts.utils import *    
+from scripts.kinematics import *    
 
 
 class RobotDynamics:
-    
-    def __init__(self):
-        pass
     
     def inverse_dynamics(self, robot, q, qdot, qddot, Fext = np.zeros(6), gravity_on = True):
         

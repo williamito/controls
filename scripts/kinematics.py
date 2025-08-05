@@ -6,11 +6,9 @@ from scipy.spatial.transform import Slerp
 from scripts.utils import *
 
 
+
 class RobotKinematics:
     
-    def __init__(self):
-        pass
-
     def forward_kinematics(self, robot, q):
         
         """compute forward kinematics (worldTtool)"""
@@ -20,18 +18,10 @@ class RobotKinematics:
         return robot.worldTbase @ baseTn @ robot.nTtool
 
     def _forward_kinematics_baseTn(self, robot, q):
-        
-        """compute forward kinematics (baseTn)"""
-
-        T = np.eye(4)
-        DOF = len(q)
-
-        for i in range(DOF):
-            dh = robot.dh_table[i]
-            T_link = RobotUtils.calc_dh_matrix(dh, q[i])
-            T = T @ T_link
-
-        return T
+        raise NotImplementedError
+    
+    def calc_geom_jac_0(self, robot, q):
+        raise NotImplementedError
 
     def _inverse_kinematics_step_baseTn(self, robot, q_start, T_desired, use_orientation=True, k=0.8, n_iter=50):
         
@@ -51,10 +41,10 @@ class RobotKinematics:
             if use_orientation:
                 err_ang = RobotUtils.calc_ang_err(T_current, T_desired)  # compute angular error
                 error = np.concatenate((err_lin, err_ang))  # total error
-                J_geom = RobotUtils.calc_geom_jac_0(robot, q)  # full jacobian
+                J_geom = self.calc_geom_jac_0(robot, q)  # full jacobian
             else:
                 error = err_lin  # total error
-                J_geom = RobotUtils.calc_geom_jac_0(robot, q)[:3, :]  # take only the position part
+                J_geom = self.calc_geom_jac_0(robot, q)[:3, :]  # take only the position part
 
             # stop if error is minimum
             if np.linalg.norm(error) < 1e-5:
@@ -98,6 +88,13 @@ class RobotKinematics:
         assert lin_error_norm < 1e-2, (f"[ERROR] Large position error ({lin_error_norm:.4f}). Check target reachability (position/orientation)")
 
         return q
+
+    def check_joint_limits(self, robot, q_vec): 
+    
+        """raise an error in case mechanical joint limits are exceeded"""
+
+        for i, q in enumerate(q_vec):
+            assert robot.mech_joint_limits_low[i] <= q <= robot.mech_joint_limits_up[i], (f"[ERROR] Joint limits out of bound. J{i + 1} = {q}, but limits are ({robot.mech_joint_limits_low[i]}, {robot.mech_joint_limits_up[i]})")
 
     def _interp_init(self, T_start, T_final):
         
@@ -154,3 +151,96 @@ class RobotKinematics:
         return T_interp
     
     
+class DH_Kinematics(RobotKinematics):
+
+    def __init__(self):
+
+        super().__init__()  # Initialize RobotKinematics
+
+    def _forward_kinematics_baseTn(self, robot, q):
+        
+        """compute forward kinematics (baseTn)"""
+
+        T = np.eye(4)
+        DOF = len(q)
+
+        for i in range(DOF):
+            dh = robot.dh_table[i]
+            T_link = RobotUtils.calc_dh_matrix(dh, q[i])
+            T = T @ T_link
+
+        return T
+    
+    def calc_geom_jac_0(self, robot, q):
+        
+        """compute geometrical jacobian wrt base-frame"""
+
+        DOF = len(q)
+        J = np.zeros((6, DOF))
+        P = np.zeros((3, DOF+1))
+        z = np.zeros((3, DOF+1))
+        base_P_i = np.eye(4)
+        
+        # define z0
+        z[:,0] = np.array([0,0,1])
+        
+        for i in range(DOF):
+            
+            # get Pi and zi
+            i_T_ip1 = RobotUtils.calc_dh_matrix(robot.dh_table[i], q[i])
+            base_P_i = base_P_i @ i_T_ip1
+            P[:,i+1] = base_P_i[:3,3]
+            z[:,i+1] = base_P_i[:3,2]
+            
+        for i in range(DOF):
+            
+            # compose jacobian matrix
+            J[:3, i] = np.cross(z[:,i] , P[:,DOF] - P[:,i])
+            J[3:, i] = z[:,i] 
+            
+        return J
+    
+    # def calc_geom_jac_n(self, robot, q, base_T_n):
+        
+    #     """compute geometrical jacobian wrt n-frame"""
+        
+    #     DOF = len(q)
+    #     Jn = np.zeros((6, DOF))
+    #     T = np.zeros((6,6))
+    #     R = base_T_n[:3,:3]
+        
+    #     # get jacobian in base frame
+    #     J0 = self.calc_geom_jac_0(robot, q)
+        
+    #     # compose mapping matrix
+    #     T[:3,:3] = R.T
+    #     T[3:,3:] = R.T
+        
+    #     # compute jacobian in n-frame
+    #     Jn = T @ J0
+        
+    #     return Jn
+
+
+class URDF_Kinematics(RobotKinematics):
+
+    def __init__(self):
+
+        super().__init__()  # Initialize RobotKinematics
+
+    def _forward_kinematics_baseTn(self, robot, q, link_name="base-link"):
+
+        """compute forward kinematics (baseTn)"""
+
+        pass
+
+    def calc_geom_jac_0(self, robot, q, link_name="base-link"):
+
+        """compute geometrical jacobian wrt base-frame"""
+        
+        pass
+
+    # def calc_geom_jac_n(self, robot, q, base_T_n):
+
+    #     pass
+
