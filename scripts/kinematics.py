@@ -9,21 +9,21 @@ from scripts.utils import *
 
 class RobotKinematics:
     
-    def forward_kinematics(self, robot, q):
+    def forward_kinematics(self, robot, q, target_link_name=None):
         
         """compute forward kinematics (worldTtool)"""
 
-        baseTn = self._forward_kinematics_baseTn(robot, q)
+        baseTn = self._forward_kinematics_baseTn(robot, q, target_link_name)
 
         return robot.worldTbase @ baseTn @ robot.nTtool
 
-    def _forward_kinematics_baseTn(self, robot, q):
+    def _forward_kinematics_baseTn(self, robot, q, target_link_name):
         raise NotImplementedError
     
     def calc_geom_jac_0(self, robot, q):
         raise NotImplementedError
 
-    def _inverse_kinematics_step_baseTn(self, robot, q_start, T_desired, use_orientation=True, k=0.8, n_iter=50):
+    def _inverse_kinematics_step_baseTn(self, robot, q_start, T_desired, target_link_name=None, use_orientation=True, k=0.8, n_iter=50):
         
         """compute inverse kinematics (T_desired must be expressed in baseTn)"""
 
@@ -32,7 +32,7 @@ class RobotKinematics:
 
         for _ in range(n_iter):
             # compute current pose baseTn
-            T_current = self._forward_kinematics_baseTn(robot, q)
+            T_current = self._forward_kinematics_baseTn(robot, q, target_link_name)
 
             # compute linear error
             err_lin = RobotUtils.calc_lin_err(T_current, T_desired)
@@ -58,7 +58,7 @@ class RobotKinematics:
 
         return q
 
-    def inverse_kinematics(self, robot, q_start, desired_worldTtool, use_orientation=True, k=0.8, n_iter=50):
+    def inverse_kinematics(self, robot, q_start, desired_worldTtool, target_link_name=None, use_orientation=True, k=0.8, n_iter=50):
         
         """compute inverse kinematics (T_desired must be expressed in worldTtool)
         It is performed an interpolation both for linear and angular components"""
@@ -72,17 +72,17 @@ class RobotKinematics:
         q = copy.deepcopy(q_start)
 
         # init interpolator
-        n_steps = self._interp_init(self._forward_kinematics_baseTn(robot, q), desired_baseTn)
+        n_steps = self._interp_init(self._forward_kinematics_baseTn(robot, q, target_link_name), desired_baseTn)
 
         for i in range(0, n_steps + 1):
             # current setpoint as baseTn
             T_desired_interp = self._interp_execute(i)
 
             # get updated joint positions
-            q = self._inverse_kinematics_step_baseTn(robot, q, T_desired_interp, use_orientation, k, n_iter)
+            q = self._inverse_kinematics_step_baseTn(robot, q, T_desired_interp, target_link_name, use_orientation, k, n_iter)
 
         # check final error
-        current_worldTtool = self.forward_kinematics(robot, q)
+        current_worldTtool = self.forward_kinematics(robot, q, target_link_name)
         err_lin = RobotUtils.calc_lin_err(current_worldTtool, desired_worldTtool)
         lin_error_norm = np.linalg.norm(err_lin)
         assert lin_error_norm < 1e-2, (f"[ERROR] Large position error ({lin_error_norm:.4f}). Check target reachability (position/orientation)")
@@ -157,13 +157,14 @@ class DH_Kinematics(RobotKinematics):
 
         super().__init__()  # Initialize RobotKinematics
 
-    def _forward_kinematics_baseTn(self, robot, q):
+    def _forward_kinematics_baseTn(self, robot, q, target_link_name=None):
         
         """compute forward kinematics (baseTn)"""
 
         T = np.eye(4)
         DOF = len(q)
 
+        # loop over DH frames
         for i in range(DOF):
             dh = robot.dh_table[i]
             T_link = RobotUtils.calc_dh_matrix(dh, q[i])
@@ -171,7 +172,7 @@ class DH_Kinematics(RobotKinematics):
 
         return T
     
-    def calc_geom_jac_0(self, robot, q):
+    def calc_geom_jac_0(self, robot, q, target_link_name=None):
         
         """compute geometrical jacobian wrt base-frame"""
 
@@ -228,13 +229,20 @@ class URDF_Kinematics(RobotKinematics):
 
         super().__init__()  # Initialize RobotKinematics
 
-    def _forward_kinematics_baseTn(self, robot, q, link_name="base-link"):
+    def _forward_kinematics_baseTn(self, robot, q, target_link_name="base_link"):
 
         """compute forward kinematics (baseTn)"""
 
-        pass
+        # use URDF parser to get chain up to target_link_name
+        chain = robot.get_chain("base_link", target_link_name)
 
-    def calc_geom_jac_0(self, robot, q, link_name="base-link"):
+        # loop over frames
+        T = np.eye(4)
+        for i, joint in enumerate(chain):
+            T = T @ RobotUtils.calc_urdf_joint_transform(joint, q[i])
+        return T
+
+    def calc_geom_jac_0(self, robot, q, target_link_name="base_link"):
 
         """compute geometrical jacobian wrt base-frame"""
         

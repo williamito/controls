@@ -3,10 +3,6 @@ import numpy as np
 
 
 
-# TOO: CAPIRE SE AXIS E ORIGIN LI RACCOGLO SUBITO O DIRETTAMENTE DENTRO FKINE / JACOBIANO (IDEM PARENT/CHILD)
-
-
-
 class RobotLoader:
 
     """Parent class to define methods/attributes common to DH and URDF representations"""
@@ -16,8 +12,6 @@ class RobotLoader:
         self.link_mass = []
         self.link_com = []
         self.link_inertia = []
-        self.joint_names = []
-        self.link_names = []
         self.mech_joint_limits_low = []
         self.mech_joint_limits_up = []
         self.worldTbase = None
@@ -176,18 +170,6 @@ class URDF_handler(RobotLoader):
                 self.LINK_COM.append(np.zeros(3))
                 self.LINK_INERTIA.append(np.zeros(9))
 
-        # # add axis/origin info
-        # for joint in self.robot.joints:
-        #     inertial = link.inertial
-        #     if inertial is not None:
-        #         self.LINK_MASS.append(inertial.mass)
-        #         self.LINK_COM.append(inertial.origin[:3, 3])  
-        #         self.LINK_INERTIA.append(inertial.inertia.flatten())
-        #     else:
-        #         self.LINK_MASS.append(0.0)
-        #         self.LINK_COM.append(np.zeros(3))
-        #         self.LINK_INERTIA.append(np.zeros(9))
-
         # add joint limits
         self.MECH_JOINT_LIMITS_LOW = np.array([j.limit.lower for j in self.robot.joints if j.joint_type != 'fixed'])
         self.MECH_JOINT_LIMITS_UP = np.array([j.limit.upper for j in self.robot.joints if j.joint_type != 'fixed'])
@@ -232,8 +214,6 @@ class RobotModel:
 
         # load variables common only to DH or URDF
         self.dh_table = getattr(loader, 'ROBOT_DH_TABLES', None)
-        self.origin = getattr(loader, 'ORIGIN', None)
-        self.axis = getattr(loader, 'AXIS', None)
 
     def get_n_joints(self):
         return self.loader.get_n_joints()

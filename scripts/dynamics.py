@@ -1,7 +1,6 @@
 import copy
 import numpy as np
 
-# from scripts.utils import *    
 from scripts.kinematics import *    
 
 

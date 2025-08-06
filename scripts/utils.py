@@ -1,5 +1,5 @@
 import numpy as np
-
+from scipy.spatial.transform import Rotation as R
 
 
 class RobotUtils:
@@ -54,6 +54,30 @@ class RobotUtils:
                             [st, ct * ca, -ct * sa, a * st], 
                             [0, sa, ca, d], 
                             [0, 0, 0, 1]]) 
+    
+    @staticmethod
+    def calc_urdf_joint_transform(joint, q):
+        
+        # extract origin (translation + rotation)
+        xyz = joint.origin.xyz  # [x, y, z]
+        rpy = joint.origin.rpy  # [roll, pitch, yaw]
+        T_origin = np.eye(4)
+        T_origin[:3, :3] = R.from_euler('xyz', rpy).as_matrix()
+        T_origin[:3, 3] = xyz
+        
+        # identity matrix for motion part
+        T_motion = np.eye(4)
+        
+        if joint.joint_type == "revolute" or joint.joint_type == "continuous":
+            axis = np.array(joint.axis)  # [x, y, z]
+            T_motion[:3, :3] = R.from_rotvec(axis * q).as_matrix()
+            
+        elif joint.joint_type == "prismatic":
+            axis = np.array(joint.axis)
+            T_motion[:3, 3] = axis * q
+            
+        # for fixed joints, T_motion stays identity
+        return T_origin @ T_motion
     
     @staticmethod
     def dls_right_pseudoinv(J, lambda_val=0.001):
