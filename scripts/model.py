@@ -150,7 +150,7 @@ class URDF_handler(RobotLoader):
         
         # load URDF
         self.robot = URDF.load(path)
-        
+
         # init
         self.LINK_MASS = []
         self.LINK_COM = []

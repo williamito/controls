@@ -1,5 +1,6 @@
 import copy
 import numpy as np
+from enum import Enum
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 
@@ -7,8 +8,15 @@ from scripts.utils import *
 
 
 
+class ReferenceFrame(Enum):
+    BASE = 0
+    LOCAL = 1
+
+
 class RobotKinematics:
     
+    """Parent class to define methods common to both DH and URDF representations"""
+
     def forward_kinematics(self, robot, q, target_link_name=None):
         
         """compute forward kinematics (worldTtool)"""
@@ -18,9 +26,15 @@ class RobotKinematics:
         return robot.worldTbase @ baseTn @ robot.nTtool
 
     def _forward_kinematics_baseTn(self, robot, q, target_link_name):
+        
+        """compute forward kinematics (baseTn)"""
+        
         raise NotImplementedError
     
-    def calc_geom_jac_0(self, robot, q):
+    def calc_geom_jacobian(self, robot, q, target=None, reference_frame=ReferenceFrame.BASE):
+        
+        """Compute geometric Jacobian for target (link or frame) wrt BASE or LOCAL frame"""
+
         raise NotImplementedError
 
     def _inverse_kinematics_step_baseTn(self, robot, q_start, T_desired, target_link_name=None, use_orientation=True, k=0.8, n_iter=50):
@@ -41,10 +55,10 @@ class RobotKinematics:
             if use_orientation:
                 err_ang = RobotUtils.calc_ang_err(T_current, T_desired)  # compute angular error
                 error = np.concatenate((err_lin, err_ang))  # total error
-                J_geom = self.calc_geom_jac_0(robot, q)  # full jacobian
+                J_geom = self.calc_geom_jacobian(robot, q)  # full jacobian
             else:
                 error = err_lin  # total error
-                J_geom = self.calc_geom_jac_0(robot, q)[:3, :]  # take only the position part
+                J_geom = self.calc_geom_jacobian(robot, q)[:3, :]  # take only the position part
 
             # stop if error is minimum
             if np.linalg.norm(error) < 1e-5:
@@ -150,8 +164,12 @@ class RobotKinematics:
 
         return T_interp
     
+
+
     
 class DH_Kinematics(RobotKinematics):
+
+    """Child class in charge to override methods specific for DH representation"""
 
     def __init__(self):
 
@@ -174,7 +192,7 @@ class DH_Kinematics(RobotKinematics):
     
     def calc_geom_jac_0(self, robot, q, target_link_name=None):
         
-        """compute geometrical jacobian wrt base-frame"""
+        """compute geometrical jacobian for base-frame wrt base-frame"""
 
         DOF = len(q)
         J = np.zeros((6, DOF))
@@ -201,29 +219,44 @@ class DH_Kinematics(RobotKinematics):
             
         return J
     
-    # def calc_geom_jac_n(self, robot, q, base_T_n):
+    def calc_geom_jac_n(self, robot, q, base_T_n):
         
-    #     """compute geometrical jacobian wrt n-frame"""
+        """compute geometrical jacobian for n-frame wrt n-frame"""
         
-    #     DOF = len(q)
-    #     Jn = np.zeros((6, DOF))
-    #     T = np.zeros((6,6))
-    #     R = base_T_n[:3,:3]
+        DOF = len(q)
+        Jn = np.zeros((6, DOF))
+        T = np.zeros((6,6))
+        R = base_T_n[:3,:3]
         
-    #     # get jacobian in base frame
-    #     J0 = self.calc_geom_jac_0(robot, q)
+        # get jacobian in base frame
+        J0 = self.calc_geom_jac_0(robot, q)
         
-    #     # compose mapping matrix
-    #     T[:3,:3] = R.T
-    #     T[3:,3:] = R.T
+        # compose mapping matrix
+        T[:3,:3] = R.T
+        T[3:,3:] = R.T
         
-    #     # compute jacobian in n-frame
-    #     Jn = T @ J0
+        # compute jacobian in n-frame
+        Jn = T @ J0
         
-    #     return Jn
+        return Jn
+
+    def calc_geom_jacobian(self, robot, q, target=None, reference_frame=ReferenceFrame.BASE):
+        
+        """Compute geometric Jacobian for n-frame (target) wrt BASE or LOCAL frame"""
+        
+        if (reference_frame == ReferenceFrame.LOCAL):
+            J = self.calc_geom_jac_n(robot, q, target)
+        elif (reference_frame == ReferenceFrame.BASE):
+            J = self.calc_geom_jac_0(robot, q)
+
+        return J
+    
+
 
 
 class URDF_Kinematics(RobotKinematics):
+
+    """Child class in charge to override methods specific for URDF representation"""
 
     def __init__(self):
 
@@ -233,22 +266,72 @@ class URDF_Kinematics(RobotKinematics):
 
         """compute forward kinematics (baseTn)"""
 
-        # use URDF parser to get chain up to target_link_name
-        chain = robot.get_chain("base_link", target_link_name)
+        # get full joint chain from base to target
+        chain = self.get_joint_chain(robot, "base_link", target_link_name)
 
-        # loop over frames
         T = np.eye(4)
-        for i, joint in enumerate(chain):
-            T = T @ RobotUtils.calc_urdf_joint_transform(joint, q[i])
+        q_index = 0  # index into q (which only contains movable joints)
+
+        for joint in chain:
+            if robot.joint_type(joint) == "fixed":
+                # just apply fixed joint transform (no q)
+                T = T @ RobotUtils.calc_urdf_joint_transform(joint, 0.0)
+            else:
+                # apply transform with actual joint variable
+                T = T @ RobotUtils.calc_urdf_joint_transform(joint, q[q_index])
+                q_index += 1
+
         return T
 
-    def calc_geom_jac_0(self, robot, q, target_link_name="base_link"):
-
-        """compute geometrical jacobian wrt base-frame"""
+    def calc_geom_jacobian(self, robot, q, target=None, reference_frame=ReferenceFrame.BASE):
         
+        """
+        Compute geometric Jacobian for target link wrt BASE or LOCAL frame.
+        q must correspond to robot's movable joints in the chain.
+        """
+
+        # get chain joints (only movable ones)
+        chain = self.get_joint_chain(robot, "base_link", target)
+        # chain = [j for j in robot.get_chain("base_link", target, links=False) if robot.is_movable(j)]
+        DOF = len(chain)
+
+        J = np.zeros((6, DOF))
+        P = np.zeros((3, DOF + 1))
+        z = np.zeros((3, DOF + 1))
+        T = np.eye(4)
+
+        # z0 (z-axis of base)
+        z[:, 0] = np.array([0, 0, 1])
+
+        for i, joint in enumerate(chain):
+            T = T @ RobotUtils.calc_urdf_joint_transform(joint, q[i])
+            P[:, i + 1] = T[:3, 3]
+            z[:, i + 1] = T[:3, 2]
+
+        # build Jacobian
+        for i, joint in enumerate(chain):
+            if robot.joint_type(joint) == "revolute":
+                J[:3, i] = np.cross(z[:, i], P[:, DOF] - P[:, i])
+                J[3:, i] = z[:, i]
+            elif robot.joint_type(joint) == "prismatic":
+                J[:3, i] = z[:, i]
+                J[3:, i] = np.zeros(3)
+
+        # if LOCAL frame requested
+        if reference_frame == ReferenceFrame.LOCAL:
+            R = T[:3, :3]  # from base to target
+            T_map = np.zeros((6, 6))
+            T_map[:3, :3] = R.T
+            T_map[3:, 3:] = R.T
+            J = T_map @ J
+
+        return J
+    
+    def get_joint_chain(robot, base_link_name, target_link_name):
+
+        """Returns the list of joints connecting base_link_name to target_link_name"""
+
+
+
+
         pass
-
-    # def calc_geom_jac_n(self, robot, q, base_T_n):
-
-    #     pass
-
