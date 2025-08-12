@@ -272,8 +272,9 @@ class URDF_Kinematics(RobotKinematics):
         T = np.eye(4)
         q_index = 0  # index into q (which only contains movable joints)
 
+        # go through joint chain
         for joint in chain:
-            if robot.joint_type(joint) == "fixed":
+            if joint.joint_type == "fixed":
                 # just apply fixed joint transform (no q)
                 T = T @ RobotUtils.calc_urdf_joint_transform(joint, 0.0)
             else:
@@ -281,7 +282,7 @@ class URDF_Kinematics(RobotKinematics):
                 T = T @ RobotUtils.calc_urdf_joint_transform(joint, q[q_index])
                 q_index += 1
 
-        return T
+        return T  
 
     def calc_geom_jacobian(self, robot, q, target=None, reference_frame=ReferenceFrame.BASE):
         
@@ -290,34 +291,46 @@ class URDF_Kinematics(RobotKinematics):
         q must correspond to robot's movable joints in the chain.
         """
 
-        # get chain joints (only movable ones)
+        # get chain joints
         chain = self.get_joint_chain(robot, "base_link", target)
-        # chain = [j for j in robot.get_chain("base_link", target, links=False) if robot.is_movable(j)]
-        DOF = len(chain)
-
-        J = np.zeros((6, DOF))
-        P = np.zeros((3, DOF + 1))
-        z = np.zeros((3, DOF + 1))
+        
+        # init
+        n_chain = len(chain) # number of joints in full chain (including fixed)
+        n_dof = len([j for j in chain if j.joint_type != "fixed"]) # number of DOF (movable joints only)
+        
+        J = np.zeros((6, n_dof))
+        P = np.zeros((3, n_chain + 1))
+        z = np.zeros((3, n_chain + 1))
         T = np.eye(4)
 
         # z0 (z-axis of base)
         z[:, 0] = np.array([0, 0, 1])
 
+        # pre-compute P,z
+        q_index = 0  # index in q for movable joints
         for i, joint in enumerate(chain):
-            T = T @ RobotUtils.calc_urdf_joint_transform(joint, q[i])
+            if joint.joint_type == "fixed":
+                T = T @ RobotUtils.calc_urdf_joint_transform(joint, 0.0)
+            else:
+                T = T @ RobotUtils.calc_urdf_joint_transform(joint, q[q_index])
+                q_index += 1
             P[:, i + 1] = T[:3, 3]
             z[:, i + 1] = T[:3, 2]
 
-        # build Jacobian
+        # compute J
+        q_index = 0 # reset q_index for Jacobian fill
         for i, joint in enumerate(chain):
-            if robot.joint_type(joint) == "revolute":
-                J[:3, i] = np.cross(z[:, i], P[:, DOF] - P[:, i])
-                J[3:, i] = z[:, i]
-            elif robot.joint_type(joint) == "prismatic":
-                J[:3, i] = z[:, i]
-                J[3:, i] = np.zeros(3)
+            if joint.joint_type == "fixed":
+                continue
+            if joint.joint_type == "revolute":
+                J[:3, q_index] = np.cross(z[:, i], P[:, n_chain] - P[:, i])
+                J[3:, q_index] = z[:, i]
+            elif joint.joint_type == "prismatic":
+                J[:3, q_index] = z[:, i]
+                J[3:, q_index] = np.zeros(3)
+            q_index += 1
 
-        # if LOCAL frame requested
+        # map to LOCAL frame if requested
         if reference_frame == ReferenceFrame.LOCAL:
             R = T[:3, :3]  # from base to target
             T_map = np.zeros((6, 6))
@@ -326,12 +339,23 @@ class URDF_Kinematics(RobotKinematics):
             J = T_map @ J
 
         return J
-    
-    def get_joint_chain(robot, base_link_name, target_link_name):
+
+    def get_joint_chain(self, robot, base_link_name, target_link_name):
 
         """Returns the list of joints connecting base_link_name to target_link_name"""
 
+        # build link to joint mapping
+        link_to_joint = {joint.child: joint for joint in robot.loader.robot.joints}
 
+        # init
+        chain = []
+        current_link = target_link_name
 
+        # go through the chain (include both movable and not movable joints)
+        while (current_link != base_link_name):
+            joint = link_to_joint[current_link]
+            chain.append(joint)
+            current_link = joint.parent  
 
-        pass
+        chain.reverse()
+        return chain

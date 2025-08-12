@@ -59,11 +59,7 @@ class RobotUtils:
     def calc_urdf_joint_transform(joint, q):
         
         # extract origin (translation + rotation)
-        xyz = joint.origin.xyz  # [x, y, z]
-        rpy = joint.origin.rpy  # [roll, pitch, yaw]
-        T_origin = np.eye(4)
-        T_origin[:3, :3] = R.from_euler('xyz', rpy).as_matrix()
-        T_origin[:3, 3] = xyz
+        T_origin = joint.origin
         
         # identity matrix for motion part
         T_motion = np.eye(4)
