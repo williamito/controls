@@ -37,6 +37,38 @@ class RobotKinematics:
 
         raise NotImplementedError
 
+    def inverse_kinematics(self, robot, q_start, desired_worldTtool, target_link_name=None, use_orientation=True, k=0.8, n_iter=50):
+        
+        """compute inverse kinematics (T_desired must be expressed in worldTtool)
+        It is performed an interpolation both for linear and angular components"""
+
+        # I compute ikine with baseTn
+        desired_baseTn = (RobotUtils.inv_homog_mat(robot.worldTbase)
+                          @ desired_worldTtool
+                          @ RobotUtils.inv_homog_mat(robot.nTtool))
+
+        # don't override current joint positions
+        q = copy.deepcopy(q_start)
+
+        # init interpolator
+        n_steps = self._interp_init(self._forward_kinematics_baseTn(robot, q, target_link_name), desired_baseTn)
+
+        for i in range(0, n_steps + 1):
+
+            # current setpoint as baseTn
+            T_desired_interp = self._interp_execute(i)
+
+            # get updated joint positions
+            q = self._inverse_kinematics_step_baseTn(robot, q, T_desired_interp, target_link_name, use_orientation, k, n_iter)
+        
+        # check final error
+        current_worldTtool = self.forward_kinematics(robot, q, target_link_name)
+        err_lin = RobotUtils.calc_lin_err(current_worldTtool, desired_worldTtool)
+        lin_error_norm = np.linalg.norm(err_lin)
+        assert lin_error_norm < 1e-2, (f"[ERROR] Large position error ({lin_error_norm:.4f}). Check target reachability (position/orientation)")
+
+        return q
+    
     def _inverse_kinematics_step_baseTn(self, robot, q_start, T_desired, target_link_name=None, use_orientation=True, k=0.8, n_iter=50):
         
         """compute inverse kinematics (T_desired must be expressed in baseTn)"""
@@ -55,10 +87,10 @@ class RobotKinematics:
             if use_orientation:
                 err_ang = RobotUtils.calc_ang_err(T_current, T_desired)  # compute angular error
                 error = np.concatenate((err_lin, err_ang))  # total error
-                J_geom = self.calc_geom_jacobian(robot, q)  # full jacobian
+                J_geom = self.calc_geom_jacobian(robot, q, target_link_name)  # full jacobian
             else:
                 error = err_lin  # total error
-                J_geom = self.calc_geom_jacobian(robot, q)[:3, :]  # take only the position part
+                J_geom = self.calc_geom_jacobian(robot, q, target_link_name)[:3, :]  # take only the position part
 
             # stop if error is minimum
             if np.linalg.norm(error) < 1e-5:
@@ -72,37 +104,6 @@ class RobotKinematics:
 
         return q
 
-    def inverse_kinematics(self, robot, q_start, desired_worldTtool, target_link_name=None, use_orientation=True, k=0.8, n_iter=50):
-        
-        """compute inverse kinematics (T_desired must be expressed in worldTtool)
-        It is performed an interpolation both for linear and angular components"""
-
-        # I compute ikine with baseTn
-        desired_baseTn = (RobotUtils.inv_homog_mat(robot.worldTbase)
-                          @ desired_worldTtool
-                          @ RobotUtils.inv_homog_mat(robot.nTtool))
-
-        # don't override current joint positions
-        q = copy.deepcopy(q_start)
-
-        # init interpolator
-        n_steps = self._interp_init(self._forward_kinematics_baseTn(robot, q, target_link_name), desired_baseTn)
-
-        for i in range(0, n_steps + 1):
-            # current setpoint as baseTn
-            T_desired_interp = self._interp_execute(i)
-
-            # get updated joint positions
-            q = self._inverse_kinematics_step_baseTn(robot, q, T_desired_interp, target_link_name, use_orientation, k, n_iter)
-
-        # check final error
-        current_worldTtool = self.forward_kinematics(robot, q, target_link_name)
-        err_lin = RobotUtils.calc_lin_err(current_worldTtool, desired_worldTtool)
-        lin_error_norm = np.linalg.norm(err_lin)
-        assert lin_error_norm < 1e-2, (f"[ERROR] Large position error ({lin_error_norm:.4f}). Check target reachability (position/orientation)")
-
-        return q
-
     def check_joint_limits(self, robot, q_vec): 
     
         """raise an error in case mechanical joint limits are exceeded"""
@@ -110,39 +111,35 @@ class RobotKinematics:
         for i, q in enumerate(q_vec):
             assert robot.mech_joint_limits_low[i] <= q <= robot.mech_joint_limits_up[i], (f"[ERROR] Joint limits out of bound. J{i + 1} = {q}, but limits are ({robot.mech_joint_limits_low[i]}, {robot.mech_joint_limits_up[i]})")
 
-    def _interp_init(self, T_start, T_final):
+    def _interp_init(self, T_start, T_final, freq = 100, trans_speed = 0.5, rot_speed = 2.0):
         
-        """Initialize interpolator parameters"""
-
-        # init
+        """Initialize interpolation parameters"""
+        
         self.t_start = T_start[:3, 3]
         self.t_final = T_final[:3, 3]
         R_start = T_start[:3, :3]
         R_final = T_final[:3, :3]
-        
-        # step size for trajectory
-        delta_trans = 0.01  # meters
-        delta_rot = 0.05    # radians
-        
+
         # linear distance
         trans_dist = RobotUtils.calc_distance(self.t_final, self.t_start)
-        n_steps_trans = trans_dist / delta_trans
-        
-        # angular distance
-        rotvec = R.from_matrix(R_final @ R_start.T).as_rotvec() # axis*angle
-        ang_dist = np.linalg.norm(rotvec) # angle modulus
-        n_steps_rot = ang_dist / delta_rot
-        
-        # total steps
-        self.n_steps = int(np.ceil(max(n_steps_trans, n_steps_rot)))
+        t_trans = trans_dist / trans_speed
 
-        # Create SLERP object
+        # angular distance
+        rotvec = R.from_matrix(R_final @ R_start.T).as_rotvec()
+        ang_dist = np.linalg.norm(rotvec)
+        t_rot = ang_dist / rot_speed
+
+        # total time & corresponding n_steps
+        total_time = max(t_trans, t_rot)
+        self.n_steps = int(np.ceil(freq*total_time))
+
+        # SLERP for orientation
         times = [0, 1]
         rotations = R.from_matrix([R_start, R_final])
         self.slerp = Slerp(times, rotations)
 
         return self.n_steps
-
+    
     def _interp_execute(self, i):
         
         """Compute Cartesian pose setpoint for the current step"""
@@ -166,7 +163,7 @@ class RobotKinematics:
     
 
 
-    
+
 class DH_Kinematics(RobotKinematics):
 
     """Child class in charge to override methods specific for DH representation"""
@@ -359,5 +356,5 @@ class URDF_Kinematics(RobotKinematics):
             chain.append(joint)
             current_link = joint.parent  
 
-        chain.reverse()
+        chain.reverse()       
         return chain
