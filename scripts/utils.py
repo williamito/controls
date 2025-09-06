@@ -96,3 +96,28 @@ class RobotUtils:
         J_pinv = np.linalg.inv(JTJ + lambda_val * W) @ JT 
         
         return J_pinv
+    
+
+
+
+
+    @staticmethod
+    def calc_urdf_joint_transform_origin_only(joint):
+        # costruisci 4x4 da joint.origin (rpy+xyz)
+        return joint.origin  # se già 4x4; altrimenti costruiscila qui
+
+    @staticmethod
+    def calc_urdf_joint_transform_motion_only(joint, q):
+        Tm = np.eye(4)
+        if joint.joint_type in ("revolute", "continuous"):
+            axis = np.array(joint.axis, dtype=float)
+            nrm = np.linalg.norm(axis)
+            axis = axis / nrm if nrm > 1e-12 else np.array([0.,0.,1.])
+            from scipy.spatial.transform import Rotation as R
+            Tm[:3,:3] = R.from_rotvec(axis * q).as_matrix()
+        elif joint.joint_type == "prismatic":
+            axis = np.array(joint.axis, dtype=float)
+            nrm = np.linalg.norm(axis)
+            axis = axis / nrm if nrm > 1e-12 else np.array([0.,0.,1.])
+            Tm[:3,3] = axis * q
+        return Tm

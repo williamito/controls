@@ -102,7 +102,7 @@ print("\nT_goal = \n", T_goal)
 
 
 # IK with internal interpolation
-q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="flange", use_orientation=True, k=0.1, n_iter=10) # k=0.8, n_iter=50
+q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="flange", use_orientation=True, k=0.8, n_iter=1) 
 print("\nFinal joint angles = ", q_final)
 
 T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="flange")
@@ -144,12 +144,18 @@ kin.check_joint_limits(robot_model, q_final)
 # print("\nforce expressed in n-frame: \n", f_ext_n)
 
 
-# print("\n\nJACOBIANS EXAMPLE:\n\n")
+print("\n\nJACOBIANS EXAMPLE:\n\n")
 
-# # jacobians
-# q = np.array([0.1, 0.2, 0.1, 0.2, 0.1]) 
-# base_T_n = kin._forward_kinematics_baseTn(robot_model, q)
-# J0 = kin.calc_geom_jacobian(robot_model, q, target="flange")
-# Jn = kin.calc_geom_jacobian(robot_model, q, target="flange", reference_frame=ReferenceFrame.LOCAL)
-# print("\ngeometric jacobian in base-frame: \n", J0)
-# print("\ngeometric jacobian in n-frame: \n", Jn)
+# Print chain list from base_link to flange
+chain = kin.get_joint_chain(robot_model, "base_link", "flange")
+for idx, joint in enumerate(chain):
+    print(idx, joint.name, joint.parent, joint.child)
+
+# jacobians
+q = np.array([0.1, 0.2, 0.1, 0.2, 0.1, 0.2]) 
+base_T_n = kin._forward_kinematics_baseTn(robot_model, q)
+J0 = kin.calc_geom_jacobian(robot_model, q, target="flange")
+Jn = kin.calc_geom_jacobian(robot_model, q, target="flange", reference_frame=ReferenceFrame.LOCAL)
+print("\ngeometric jacobian in base-frame: \n", J0)
+print("\ngeometric jacobian in n-frame: \n", Jn)
+
