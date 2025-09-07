@@ -6,10 +6,11 @@ from scripts.dynamics import *
 
 
 # 0) Include source_link oltre al target_link)
-# 1) fare andare IK di ABB Robot --> confronta jacobians con pybullet (magari sbaglio a calcolarli)
 # 2) fare andare DK + IK SO100
-# 3) fare andare URDF dynamics su SO100 (come DH)
-# 4) testare dynamics su pybullet???
+# 3) testare ikine su pybullet
+# 4) testare DH dynamics su pybullet
+# 5) fare andare URDF dynamics su SO100
+
 
 
 # lerobot 
@@ -86,20 +87,25 @@ T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="flange")
 # T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="gripper")
 print("\nT_start = \n", T_start)
 
-# Define goal pose
+# Define relative goal pose
 # T_goal = T_start.copy()
 # T_goal[:3, 3] += np.array([0.0, 0.0, 0.0])
 # print("\nT_goal = \n", T_goal)
 
+# Define absolute goal pose
+# T_goal = np.array([
+#     [1.0, 0.0, 0.0, 2.3],
+#     [0.0, 1.0, 0.0, 0.3],
+#     [0.0, 0.0, 1.0, 2.8],
+#     [0.0, 0.0, 0.0, 1.0]
+# ])
 T_goal = np.array([
-    [1.0, 0.0, 0.0, 2.3],
-    [0.0, 1.0, 0.0, 0.3],
-    [0.0, 0.0, 1.0, 2.8],
-    [0.0, 0.0, 0.0, 1.0]
+    [-0.44807362, -0.89399666,  0.0,  3.0],
+    [ 0.89399666, -0.44807362,  0.0,  1.0],
+    [ 0.0,          0.0,        1.0,  1.5],
+    [ 0.0,          0.0,        0.0,  1.0]
 ])
 print("\nT_goal = \n", T_goal)
-
-
 
 # IK with internal interpolation
 q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="flange", use_orientation=True, k=0.8, n_iter=1) 
