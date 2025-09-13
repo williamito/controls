@@ -264,8 +264,7 @@ class URDF_Kinematics(RobotKinematics):
         """compute forward kinematics (baseTn)"""
 
         # get full joint chain from base to target
-        chain = self.get_joint_chain(robot, "base_link", target_link_name)
-        # chain = self.get_joint_chain(robot, "base", target_link_name)
+        chain = self.get_joint_chain(robot, robot.root_link, target_link_name)
 
         T = np.eye(4)
         q_index = 0  # index into q (which only contains movable joints)
@@ -310,7 +309,7 @@ class URDF_Kinematics(RobotKinematics):
         """
 
         # get chain joints
-        chain = self.get_joint_chain(robot, "base_link", target)
+        chain = self.get_joint_chain(robot, robot.root_link, target)
 
         # init
         n_chain = len(chain)  # number of joints in the chain (including fixed)

@@ -177,6 +177,9 @@ class URDF_handler(RobotLoader):
         # add world and tool transforms
         self.WORLD_T_TOOL = np.eye(4)
         self.N_T_TOOL = np.eye(4)
+
+        # add root link name
+        self.ROOT_LINK_NAME = self.find_root_link()
         
     def get_n_joints(self):
         return len([j for j in self.robot.joints if j.joint_type != 'fixed'])
@@ -193,6 +196,22 @@ class URDF_handler(RobotLoader):
         print("\nJoint names:")
         for joint in self.robot.joints:
             print(f" - {joint.name} ({joint.joint_type})")
+
+        print("\nRoot link name:", self.ROOT_LINK_NAME)
+
+    def find_root_link(self):
+
+        """Find root link name"""
+
+        # find root
+        all_links = {link.name for link in self.robot.links}
+        child_links = {joint.child for joint in self.robot.joints}
+        roots = list(all_links - child_links) # it shall remain just 1 element (root) in the set
+        
+        if len(roots) != 1:
+            raise ValueError(f"Expected 1 root, found {roots}")
+        
+        return roots[0]
 
 
 
@@ -214,6 +233,7 @@ class RobotModel:
 
         # load variables common only to DH or URDF
         self.dh_table = getattr(loader, 'ROBOT_DH_TABLES', None)
+        self.root_link = getattr(loader, 'ROOT_LINK_NAME', None)
 
     def get_n_joints(self):
         return self.loader.get_n_joints()
