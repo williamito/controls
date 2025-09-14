@@ -316,6 +316,9 @@ class URDF_Kinematics(RobotKinematics):
         movables = [j for j in chain if j.joint_type != "fixed"]
         n_dof = len(movables)
 
+        # check input vector has same length as the movable joints
+        assert len(q) == n_dof, (f"[ERROR] input q vector has dim={len(q)}, while it should have dim={n_dof} (movable joints list length)")
+
         J = np.zeros((6, n_dof))
         P = np.zeros((3, n_chain + 1))  # origins of joints
         z = np.zeros((3, n_chain + 1))  # axes of joints in base frame

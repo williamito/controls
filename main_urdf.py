@@ -5,14 +5,49 @@ from scripts.kinematics import *
 from scripts.dynamics import *
 
 
-# 0) investigare singolarità o moto strano in pybullet con mia libreria
-# 1) fare andare DK + IK SO100 --> n_joints sono 6, ma devo darne 5... da cpaire come gestisce, xke pybullet non si rompe mio codice si
-# 2) testare ikine su pybullet
-# 3) togliere 6dof da codice esempio e folders
-# 4) riscrivi readme includendo urdf e fai merge
+    # --> sarebbe bello usarla pulita e nel main in cui uso pybullet per mostrare robot e muoverlo con mia libreria!
 
-# 5) testare DH dynamics su pybullet
-# 6) fare andare URDF dynamics su SO100
+    # def inverse_kinematics(self, robot, q_start, desired_worldTtool, target_link_name=None, use_orientation=True, k=0.8, n_iter=50):
+        
+    #     """compute inverse kinematics (T_desired must be expressed in worldTtool)
+    #     It is performed an interpolation both for linear and angular components"""
+
+    #     # I compute ikine with baseTn
+    #     desired_baseTn = (RobotUtils.inv_homog_mat(robot.worldTbase)
+    #                       @ desired_worldTtool
+    #                       @ RobotUtils.inv_homog_mat(robot.nTtool))
+
+    #     # don't override current joint positions
+    #     q = copy.deepcopy(q_start)
+
+    #     # init interpolator
+    #     n_steps = self._interp_init(self._forward_kinematics_baseTn(robot, q, target_link_name), desired_baseTn)
+
+    #     for i in range(0, n_steps + 1):
+
+    #         # current setpoint as baseTn
+    #         T_desired_interp = self._interp_execute(i)
+
+    #         # get updated joint positions
+    #         q = self._inverse_kinematics_step_baseTn(robot, q, T_desired_interp, target_link_name, use_orientation, k, n_iter)
+        
+    #     # check final error
+    #     current_worldTtool = self.forward_kinematics(robot, q, target_link_name)
+    #     err_lin = RobotUtils.calc_lin_err(current_worldTtool, desired_worldTtool)
+    #     lin_error_norm = np.linalg.norm(err_lin)
+    #     assert lin_error_norm < 1e-2, (f"[ERROR] Large position error ({lin_error_norm:.4f}). Check target reachability (position/orientation)")
+
+    #     return q
+
+
+
+# 0) investigare singolarità o moto strano in pybullet con mia libreria
+# 1) fixare fatto che posso dare in input q a dim=23, non a mano che sto a tagliare a dim=6 --> poi togliere rifirimenti a G1 nel codice
+# 2) aggiungere main_pybullet.py dove uso mia lib + visualizzo in pybullet
+# 3) riscrivi readme includendo urdf explanation + requirements.txt env + fai merge
+
+# 4) testare DH dynamics su pybullet
+# 5) fare andare URDF dynamics su SO100
 
 
 ## URDF Loader ##
@@ -23,8 +58,8 @@ print("\n\nLOADING ROBOT MODEL:\n\n")
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Construct relative path to URDF
-# urdf_path = os.path.join(script_dir, "urdfs", "abb_irb6700_150_320", "abb_irb6700_150_320.urdf")
 urdf_path = os.path.join(script_dir, "urdfs", "so100", "so100.urdf")
+urdf_path = os.path.join(script_dir, "urdfs", "g1", "g1_23dof.urdf")
 
 # Instantiate URDF loader
 urdf_loader = URDF_handler()
@@ -47,52 +82,39 @@ kin = URDF_Kinematics()
 
 # get current joint positions   
 q_init = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # SO100
-# q_init = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # 6DOF
+q_init = np.zeros(6)  # GO1 --> n_dof = 6 for target "right_ankle_roll_link"
 print("q_init: ", np.rad2deg(q_init))
 
 # compute start pose
-# T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="flange") # 6DOF
-T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="gripper") # SO100
+# T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="gripper") # SO100
+T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="right_ankle_roll_link") # G1
 print("\nT_start = \n", T_start)
+
+# Define relative goal pose G1
+T_goal = T_start.copy()
+T_goal[:3, 3] += np.array([0.2, 0.0, 0.3])
+print("\nT_goal = \n", T_goal)
 
 # # Define relative goal pose SO100
 # T_goal = T_start.copy()
 # T_goal[:3, 3] += np.array([0.0, 0.0, 0.2])
 # print("\nT_goal = \n", T_goal)
 
-# Define absolute goal pose SO100
-T_goal = np.array([
-    [1.0, 0.0, 0.0,  0.0],
-    [0.0, 1.0, 0.0, -0.14],
-    [0.0, 0.0, 1.0,  0.269],
-    [0.0, 0.0, 0.0,  1.0]
-])
-
-
-# Define absolute goal pose 6DOF
+# # Define absolute goal pose SO100
 # T_goal = np.array([
-#     [1.0, 0.0, 0.0, 2.3],
-#     [0.0, 1.0, 0.0, 0.3],
-#     [0.0, 0.0, 1.0, 2.8],
-#     [0.0, 0.0, 0.0, 1.0]
+#     [1.0, 0.0, 0.0,  0.0],
+#     [0.0, 1.0, 0.0, -0.17],
+#     [0.0, 0.0, 1.0,  0.37],
+#     [0.0, 0.0, 0.0,  1.0]
 # ])
-
-# Define absolute goal pose 6DOF
-# T_goal = np.array([
-#     [-0.44807362, -0.89399666,  0.0,  3.0],
-#     [ 0.89399666, -0.44807362,  0.0,  1.0],
-#     [ 0.0,          0.0,        1.0,  1.5],
-#     [ 0.0,          0.0,        0.0,  1.0]
-# ])
-# print("\nT_goal = \n", T_goal)
 
 # IK with internal interpolation
-# q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="flange", use_orientation=True, k=0.8, n_iter=1) # 6DOF
-q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="gripper", use_orientation=True, k=0.8, n_iter=1) # SO100
+# q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="gripper", use_orientation=True, k=0.8, n_iter=1) # SO100
+q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="right_ankle_roll_link", use_orientation=True, k=0.8, n_iter=1) # G1
 print("\nFinal joint angles = ", q_final)
 
-# T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="flange")  # 6DOF
-T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="gripper")  # SO100
+# T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="gripper")  # SO100
+T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="right_ankle_roll_link")  # G1
 print("\nFinal pose direct kinematics = \n", T_final)
 
 print("\nerr_lin = ", RobotUtils.calc_lin_err(T_goal, T_final))
