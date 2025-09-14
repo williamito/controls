@@ -5,46 +5,14 @@ from scripts.kinematics import *
 from scripts.dynamics import *
 
 
-# 0) Include source_link oltre al target_link)
-# 2) fare andare DK + IK SO100
-# 3) testare ikine su pybullet
-# 4) testare DH dynamics su pybullet
-# 5) fare andare URDF dynamics su SO100
+# 0) investigare singolarità o moto strano in pybullet con mia libreria
+# 1) fare andare DK + IK SO100 --> n_joints sono 6, ma devo darne 5... da cpaire come gestisce, xke pybullet non si rompe mio codice si
+# 2) testare ikine su pybullet
+# 3) togliere 6dof da codice esempio e folders
+# 4) riscrivi readme includendo urdf e fai merge
 
-
-
-# lerobot 
-# qpos_start = [-np.pi/2, -np.pi/2, np.pi/2, np.pi/2, -np.pi/2, np.pi/2]
-# ee_start = [-0.1936, -0.0452,  0.1743]
-
-# The expected final position should be
-
-# qpos_goal = [-1.5708, -1.7102,  1.1232,  1.3598, -1.5709,  1.5706]
-# ee_goal = [-0.1952, -0.0452,  0.2714]
-
-
-# 6 axis
-# Start q:  [0. 0. 0. 0. 0. 0.]
-# T_start: 
-#  [[ 0.          0.          1.          2.11249995]
-#  [ 0.          1.          0.          0.        ]
-#  [-1.          0.          0.          2.25999999]
-#  [ 0.          0.          0.          1.        ]]
-# T_final: 
-#  [[1.  0.  0.  2.3]
-#  [0.  1.  0.  0.3]
-#  [0.  0.  1.  2.8]
-#  [0.  0.  0.  1. ]]
-# Final q:  [ 1.29899961e-01  4.32965089e-01 -7.31214305e-01 -4.08254762e-04
-#  -1.27558318e+00 -1.29778771e-01]
-# Final pose: 
-#  [[ 9.99967623e-01 -6.57766597e-07  8.04692895e-03  2.29901719e+00]
-#  [ 6.63310164e-07  1.00000000e+00 -6.86235942e-07  2.98462093e-01]
-#  [-8.04692895e-03  6.91551334e-07  9.99967623e-01  2.79722095e+00]
-#  [ 0.00000000e+00  0.00000000e+00  0.00000000e+00  1.00000000e+00]]
-
-
-
+# 5) testare DH dynamics su pybullet
+# 6) fare andare URDF dynamics su SO100
 
 
 ## URDF Loader ##
@@ -55,8 +23,8 @@ print("\n\nLOADING ROBOT MODEL:\n\n")
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Construct relative path to URDF
-urdf_path = os.path.join(script_dir, "urdfs", "abb_irb6700_150_320", "abb_irb6700_150_320.urdf")
-# urdf_path = os.path.join(script_dir, "urdfs", "abb_irb6700_150_320", "so100.urdf")
+# urdf_path = os.path.join(script_dir, "urdfs", "abb_irb6700_150_320", "abb_irb6700_150_320.urdf")
+urdf_path = os.path.join(script_dir, "urdfs", "so100", "so100.urdf")
 
 # Instantiate URDF loader
 urdf_loader = URDF_handler()
@@ -78,40 +46,53 @@ print("\n\nKINEMATICS EXAMPLE:\n\n")
 kin = URDF_Kinematics()
 
 # get current joint positions   
-# q_init = np.array([-np.pi / 2, -np.pi / 2, np.pi / 2, np.pi / 2, -np.pi / 2, np.pi / 2])
-q_init = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+q_init = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # SO100
+# q_init = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # 6DOF
 print("q_init: ", np.rad2deg(q_init))
 
 # compute start pose
-T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="flange")
-# T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="gripper")
+# T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="flange") # 6DOF
+T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="gripper") # SO100
 print("\nT_start = \n", T_start)
 
-# Define relative goal pose
+# # Define relative goal pose SO100
 # T_goal = T_start.copy()
-# T_goal[:3, 3] += np.array([0.0, 0.0, 0.0])
+# T_goal[:3, 3] += np.array([0.0, 0.0, 0.2])
 # print("\nT_goal = \n", T_goal)
 
-# Define absolute goal pose
+# Define absolute goal pose SO100
+T_goal = np.array([
+    [1.0, 0.0, 0.0,  0.0],
+    [0.0, 1.0, 0.0, -0.14],
+    [0.0, 0.0, 1.0,  0.269],
+    [0.0, 0.0, 0.0,  1.0]
+])
+
+
+# Define absolute goal pose 6DOF
 # T_goal = np.array([
 #     [1.0, 0.0, 0.0, 2.3],
 #     [0.0, 1.0, 0.0, 0.3],
 #     [0.0, 0.0, 1.0, 2.8],
 #     [0.0, 0.0, 0.0, 1.0]
 # ])
-T_goal = np.array([
-    [-0.44807362, -0.89399666,  0.0,  3.0],
-    [ 0.89399666, -0.44807362,  0.0,  1.0],
-    [ 0.0,          0.0,        1.0,  1.5],
-    [ 0.0,          0.0,        0.0,  1.0]
-])
-print("\nT_goal = \n", T_goal)
+
+# Define absolute goal pose 6DOF
+# T_goal = np.array([
+#     [-0.44807362, -0.89399666,  0.0,  3.0],
+#     [ 0.89399666, -0.44807362,  0.0,  1.0],
+#     [ 0.0,          0.0,        1.0,  1.5],
+#     [ 0.0,          0.0,        0.0,  1.0]
+# ])
+# print("\nT_goal = \n", T_goal)
 
 # IK with internal interpolation
-q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="flange", use_orientation=True, k=0.8, n_iter=1) 
+# q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="flange", use_orientation=True, k=0.8, n_iter=1) # 6DOF
+q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="gripper", use_orientation=True, k=0.8, n_iter=1) # SO100
 print("\nFinal joint angles = ", q_final)
 
-T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="flange")
+# T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="flange")  # 6DOF
+T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="gripper")  # SO100
 print("\nFinal pose direct kinematics = \n", T_final)
 
 print("\nerr_lin = ", RobotUtils.calc_lin_err(T_goal, T_final))
@@ -150,18 +131,18 @@ kin.check_joint_limits(robot_model, q_final)
 # print("\nforce expressed in n-frame: \n", f_ext_n)
 
 
-print("\n\nJACOBIANS EXAMPLE:\n\n")
+# print("\n\nJACOBIANS EXAMPLE:\n\n")
 
-# Print chain list from base_link to flange
-chain = kin.get_joint_chain(robot_model, "base_link", "flange")
-for idx, joint in enumerate(chain):
-    print(idx, joint.name, joint.parent, joint.child)
+# # Print chain list from base_link to flange
+# chain = kin.get_joint_chain(robot_model, "base_link", "flange")
+# for idx, joint in enumerate(chain):
+#     print(idx, joint.name, joint.parent, joint.child)
 
-# jacobians
-q = np.array([0.1, 0.2, 0.1, 0.2, 0.1, 0.2]) 
-base_T_n = kin._forward_kinematics_baseTn(robot_model, q)
-J0 = kin.calc_geom_jacobian(robot_model, q, target="flange")
-Jn = kin.calc_geom_jacobian(robot_model, q, target="flange", reference_frame=ReferenceFrame.LOCAL)
-print("\ngeometric jacobian in base-frame: \n", J0)
-print("\ngeometric jacobian in n-frame: \n", Jn)
+# # jacobians
+# q = np.array([0.1, 0.2, 0.1, 0.2, 0.1, 0.2]) 
+# base_T_n = kin._forward_kinematics_baseTn(robot_model, q)
+# J0 = kin.calc_geom_jacobian(robot_model, q, target="flange")
+# Jn = kin.calc_geom_jacobian(robot_model, q, target="flange", reference_frame=ReferenceFrame.LOCAL)
+# print("\ngeometric jacobian in base-frame: \n", J0)
+# print("\ngeometric jacobian in n-frame: \n", Jn)
 
