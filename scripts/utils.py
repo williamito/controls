@@ -58,6 +58,8 @@ class RobotUtils:
     @staticmethod
     def calc_urdf_joint_transform(joint, q):
         
+        """compose parentTjoint + jointTchild(q)"""
+
         # extract origin (translation + rotation)
         T_origin = joint.origin
             
@@ -67,6 +69,8 @@ class RobotUtils:
     @staticmethod
     def calc_urdf_joint_transform_motion_only(joint, q):
         
+        """compose jointTchild(q) only"""
+
         # start from identity matrix
         T_motion = np.eye(4)
         

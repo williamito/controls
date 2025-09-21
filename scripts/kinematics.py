@@ -30,7 +30,7 @@ class RobotKinematics:
         """compute forward kinematics (baseTn)"""
         
         raise NotImplementedError
-    
+
     def calc_geom_jacobian(self, robot, q, target=None, reference_frame=ReferenceFrame.BASE):
         
         """Compute geometric Jacobian for target (link or frame) wrt BASE or LOCAL frame"""
@@ -236,7 +236,7 @@ class DH_Kinematics(RobotKinematics):
         Jn = T @ J0
         
         return Jn
-
+                          
     def calc_geom_jacobian(self, robot, q, target=None, reference_frame=ReferenceFrame.BASE):
         
         """Compute geometric Jacobian for n-frame (target) wrt BASE or LOCAL frame"""
@@ -259,15 +259,22 @@ class URDF_Kinematics(RobotKinematics):
 
         super().__init__()  # Initialize RobotKinematics
 
+
     def _forward_kinematics_baseTn(self, robot, q, target_link_name="base_link"):
+        
+        """
+        Compute forward kinematics (baseTn).
+        q is the FULL configuration vector (size = n_movable_joints of robot).
+        """
 
-        """compute forward kinematics (baseTn)"""
-
-        # get full joint chain from base to target
+        # get full joint chain from base to target (movables + fixed)
         chain = self.get_joint_chain(robot, robot.root_link, target_link_name)
 
+        # build mapping: joint name -> index in q_full
+        movable_joints = [j for j in robot.loader.robot.joints if j.joint_type != "fixed"]
+        joint_index_map = {j.name: idx for idx, j in enumerate(movable_joints)}
+
         T = np.eye(4)
-        q_index = 0  # index into q (which only contains movable joints)
 
         # go through joint chain
         for joint in chain:
@@ -275,15 +282,15 @@ class URDF_Kinematics(RobotKinematics):
                 # just apply fixed joint transform (no q)
                 T = T @ RobotUtils.calc_urdf_joint_transform(joint, 0.0)
             else:
-                # apply transform with actual joint variable
-                T = T @ RobotUtils.calc_urdf_joint_transform(joint, q[q_index])
-                q_index += 1
+                # apply transform with corresponding joint variable
+                idx = joint_index_map[joint.name]   # pick correct entry from q_full
+                T = T @ RobotUtils.calc_urdf_joint_transform(joint, q[idx])
 
-        return T  
+        return T
 
     def get_joint_chain(self, robot, base_link_name, target_link_name):
 
-        """Returns the list of joints connecting base_link_name to target_link_name"""
+        """Returns the list of joints (movables + fixed) connecting base_link_name to target_link_name"""
 
         # build link to joint mapping
         link_to_joint = {joint.child: joint for joint in robot.loader.robot.joints}
@@ -301,23 +308,25 @@ class URDF_Kinematics(RobotKinematics):
         chain.reverse()       
         return chain
 
-    def calc_geom_jacobian(self, robot, q, target=None, reference_frame=ReferenceFrame.BASE):
+    def calc_geom_jacobian(self, robot, q, target=None, reference_frame=ReferenceFrame.BASE, full=True):
         
         """
         Compute geometric Jacobian for target link wrt BASE or LOCAL frame.
-        q must correspond to robot's movable joints in the chain.
+        q is the FULL configuration vector (size = n_movable_joints of robot).
+        It return the full Jacobian by default (6 x n_movable_joints)
         """
 
         # get chain joints
         chain = self.get_joint_chain(robot, robot.root_link, target)
-
+       
+        # mapping q_full to q_chain
+        movable_joints_full = [j for j in robot.loader.robot.joints if j.joint_type != "fixed"]
+        joint_index_map = {j.name: idx for idx, j in enumerate(movable_joints_full)}
+        
         # init
+        movables_joints_chain = [j for j in chain if j.joint_type != "fixed"]
+        n_dof = len(movable_joints_full) if full == True else len(movables_joints_chain)
         n_chain = len(chain)  # number of joints in the chain (including fixed)
-        movables = [j for j in chain if j.joint_type != "fixed"]
-        n_dof = len(movables)
-
-        # check input vector has same length as the movable joints
-        assert len(q) == n_dof, (f"[ERROR] input q vector has dim={len(q)}, while it should have dim={n_dof} (movable joints list length)")
 
         J = np.zeros((6, n_dof))
         P = np.zeros((3, n_chain + 1))  # origins of joints
@@ -328,8 +337,6 @@ class URDF_Kinematics(RobotKinematics):
         z[:, 0] = np.array([0, 0, 1])
 
         # precompute P and z
-        q_index = 0 # index in q for movable joints
-
         for i, joint in enumerate(chain):
 
             # move to joint frame (origin only)
@@ -346,8 +353,8 @@ class URDF_Kinematics(RobotKinematics):
                 z[:, i + 1] = T[:3, :3] @ axis
 
                 # apply joint motion
-                T = T @ RobotUtils.calc_urdf_joint_transform_motion_only(joint, q[q_index])
-                q_index += 1
+                idx = joint_index_map[joint.name]   # pick correct entry from q_full
+                T = T @ RobotUtils.calc_urdf_joint_transform_motion_only(joint, q[idx])
             else:
                 # fixed joint: just apply identity motion (no contribution)
                 P[:, i + 1] = T[:3, 3].copy()
@@ -357,17 +364,22 @@ class URDF_Kinematics(RobotKinematics):
         p_end = T[:3, 3].copy()
 
         # fill Jacobian
-        q_index = 0
+        idx = -1
+
         for i, joint in enumerate(chain):
+            
             if joint.joint_type == "fixed":
                 continue
+            
+            # pick correct entry for composing Jacobian columns
+            idx = joint_index_map[joint.name] if full==True else idx+1
+
             if joint.joint_type in ("revolute", "continuous"):
-                J[:3, q_index] = np.cross(z[:, i + 1], p_end - P[:, i + 1])
-                J[3:, q_index] = z[:, i + 1]
+                J[:3, idx] = np.cross(z[:, i + 1], p_end - P[:, i + 1])
+                J[3:, idx] = z[:, i + 1]
             elif joint.joint_type == "prismatic":
-                J[:3, q_index] = z[:, i + 1]
-                J[3:, q_index] = np.zeros(3)
-            q_index += 1
+                J[:3, idx] = z[:, i + 1]
+                J[3:, idx] = np.zeros(3)
 
         # map to LOCAL frame if requested
         if reference_frame == ReferenceFrame.LOCAL:

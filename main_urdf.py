@@ -5,49 +5,19 @@ from scripts.kinematics import *
 from scripts.dynamics import *
 
 
-    # --> sarebbe bello usarla pulita e nel main in cui uso pybullet per mostrare robot e muoverlo con mia libreria!
-
-    # def inverse_kinematics(self, robot, q_start, desired_worldTtool, target_link_name=None, use_orientation=True, k=0.8, n_iter=50):
-        
-    #     """compute inverse kinematics (T_desired must be expressed in worldTtool)
-    #     It is performed an interpolation both for linear and angular components"""
-
-    #     # I compute ikine with baseTn
-    #     desired_baseTn = (RobotUtils.inv_homog_mat(robot.worldTbase)
-    #                       @ desired_worldTtool
-    #                       @ RobotUtils.inv_homog_mat(robot.nTtool))
-
-    #     # don't override current joint positions
-    #     q = copy.deepcopy(q_start)
-
-    #     # init interpolator
-    #     n_steps = self._interp_init(self._forward_kinematics_baseTn(robot, q, target_link_name), desired_baseTn)
-
-    #     for i in range(0, n_steps + 1):
-
-    #         # current setpoint as baseTn
-    #         T_desired_interp = self._interp_execute(i)
-
-    #         # get updated joint positions
-    #         q = self._inverse_kinematics_step_baseTn(robot, q, T_desired_interp, target_link_name, use_orientation, k, n_iter)
-        
-    #     # check final error
-    #     current_worldTtool = self.forward_kinematics(robot, q, target_link_name)
-    #     err_lin = RobotUtils.calc_lin_err(current_worldTtool, desired_worldTtool)
-    #     lin_error_norm = np.linalg.norm(err_lin)
-    #     assert lin_error_norm < 1e-2, (f"[ERROR] Large position error ({lin_error_norm:.4f}). Check target reachability (position/orientation)")
-
-    #     return q
 
 
 
-# 0) investigare singolarità o moto strano in pybullet con mia libreria
-# 1) fixare fatto che posso dare in input q a dim=23, non a mano che sto a tagliare a dim=6 --> poi togliere rifirimenti a G1 nel codice
-# 2) aggiungere main_pybullet.py dove uso mia lib + visualizzo in pybullet
-# 3) riscrivi readme includendo urdf explanation + requirements.txt env + fai merge
+# 0) investigare singolarità o moto strano o slerp orientation in pybullet con mia libreria
+# 1) creare 2 metodi per IKINE_FULL (risultato finale diretto) e IKINE_STEP (risultati intermedi e devo fare loop nel main) + visualizza in pybullet
+# 2) riscrivi readme includendo urdf explanation 
+# 3) switch to mujoco + requirements.txt env + fai merge
 
 # 4) testare DH dynamics su pybullet
 # 5) fare andare URDF dynamics su SO100
+
+
+
 
 
 ## URDF Loader ##
@@ -59,7 +29,6 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Construct relative path to URDF
 urdf_path = os.path.join(script_dir, "urdfs", "so100", "so100.urdf")
-urdf_path = os.path.join(script_dir, "urdfs", "g1", "g1_23dof.urdf")
 
 # Instantiate URDF loader
 urdf_loader = URDF_handler()
@@ -80,41 +49,33 @@ print("\n\nKINEMATICS EXAMPLE:\n\n")
 # init
 kin = URDF_Kinematics()
 
-# get current joint positions   
-q_init = np.array([0.0, 0.0, 0.0, 0.0, 0.0])  # SO100
-q_init = np.zeros(6)  # GO1 --> n_dof = 6 for target "right_ankle_roll_link"
+# get current joint positions (only movable joints, no fixed joints and no floating base pose) 
+q_init = np.zeros(6)  # SO100
 print("q_init: ", np.rad2deg(q_init))
 
 # compute start pose
-# T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="gripper") # SO100
-T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="right_ankle_roll_link") # G1
+T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="gripper") # SO100
 print("\nT_start = \n", T_start)
-
-# Define relative goal pose G1
-T_goal = T_start.copy()
-T_goal[:3, 3] += np.array([0.2, 0.0, 0.3])
-print("\nT_goal = \n", T_goal)
 
 # # Define relative goal pose SO100
 # T_goal = T_start.copy()
 # T_goal[:3, 3] += np.array([0.0, 0.0, 0.2])
 # print("\nT_goal = \n", T_goal)
 
-# # Define absolute goal pose SO100
-# T_goal = np.array([
-#     [1.0, 0.0, 0.0,  0.0],
-#     [0.0, 1.0, 0.0, -0.17],
-#     [0.0, 0.0, 1.0,  0.37],
-#     [0.0, 0.0, 0.0,  1.0]
-# ])
+# Define absolute goal pose SO100
+T_goal = np.array([
+    [1.0, 0.0, 0.0,  0.0],
+    [0.0, 1.0, 0.0, -0.17],
+    [0.0, 0.0, 1.0,  0.37],
+    [0.0, 0.0, 0.0,  1.0]
+])
+print("\nT_goal = \n", T_goal)
 
 # IK with internal interpolation
-# q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="gripper", use_orientation=True, k=0.8, n_iter=1) # SO100
-q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="right_ankle_roll_link", use_orientation=True, k=0.8, n_iter=1) # G1
+q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="gripper", use_orientation=True, k=0.8, n_iter=1) # SO100
 print("\nFinal joint angles = ", q_final)
 
-# T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="gripper")  # SO100
-T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="right_ankle_roll_link")  # G1
+T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="gripper")  # SO100
 print("\nFinal pose direct kinematics = \n", T_final)
 
 print("\nerr_lin = ", RobotUtils.calc_lin_err(T_goal, T_final))
@@ -153,18 +114,18 @@ kin.check_joint_limits(robot_model, q_final)
 # print("\nforce expressed in n-frame: \n", f_ext_n)
 
 
-# print("\n\nJACOBIANS EXAMPLE:\n\n")
+print("\n\nJACOBIANS EXAMPLE:\n\n")
 
-# # Print chain list from base_link to flange
-# chain = kin.get_joint_chain(robot_model, "base_link", "flange")
-# for idx, joint in enumerate(chain):
-#     print(idx, joint.name, joint.parent, joint.child)
+# Print chain list from base_link to flange
+chain = kin.get_joint_chain(robot_model, robot_model.root_link, "gripper")
+for idx, joint in enumerate(chain):
+    print(idx, joint.name, joint.parent, joint.child)
 
-# # jacobians
-# q = np.array([0.1, 0.2, 0.1, 0.2, 0.1, 0.2]) 
-# base_T_n = kin._forward_kinematics_baseTn(robot_model, q)
-# J0 = kin.calc_geom_jacobian(robot_model, q, target="flange")
-# Jn = kin.calc_geom_jacobian(robot_model, q, target="flange", reference_frame=ReferenceFrame.LOCAL)
-# print("\ngeometric jacobian in base-frame: \n", J0)
-# print("\ngeometric jacobian in n-frame: \n", Jn)
+# jacobians
+q = np.array([0.1, 0.2, 0.1, 0.2, 0.1, 0.2]) 
+base_T_n = kin._forward_kinematics_baseTn(robot_model, q, target_link_name="gripper")
+J0 = kin.calc_geom_jacobian(robot_model, q, target="gripper")
+Jn = kin.calc_geom_jacobian(robot_model, q, target="gripper", reference_frame=ReferenceFrame.LOCAL)
+print("\ngeometric jacobian in base-frame: \n", J0)
+print("\ngeometric jacobian in n-frame: \n", Jn)
 
