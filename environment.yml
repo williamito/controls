@@ -43,7 +43,7 @@ dependencies:
       - importlib-resources==6.5.2
       - lxml==6.0.2
       - mujoco==3.3.6
-      - networkx==3.4.2
+      - networkx==2.2
       - numpy==1.23.5
       - pillow==11.3.0
       - pycollada==0.6
