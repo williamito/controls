@@ -28,7 +28,7 @@ print("\n\nLOADING ROBOT MODEL:\n\n")
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Construct relative path to URDF
-urdf_path = os.path.join(script_dir, "urdfs", "so100", "so100.urdf")
+urdf_path = os.path.join(script_dir, "models", "so100", "urdf", "so100.urdf")
 
 # Instantiate URDF loader
 urdf_loader = URDF_handler()
