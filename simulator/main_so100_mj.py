@@ -9,7 +9,7 @@ from scripts.kinematics import *
 from scripts.dynamics import *
 
 
-# run from /controls folder directly: python -m simulator.main_so100
+# run from /controls folder directly: python -m simulator.main_so100_mj.py
 
 
 ### INIT MUJOCO ###
@@ -57,7 +57,7 @@ print("qvel: ", qvel)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Construct relative path to URDF
-urdf_path = os.path.join(script_dir, "..", "urdfs", "so100", "so100.urdf") 
+urdf_path = os.path.join(script_dir, "..", "models", "so100", "urdf", "so100.urdf") 
 
 # Instantiate URDF loader
 urdf_loader = URDF_handler()
@@ -151,21 +151,21 @@ steps = int(sim_time / dt)
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
 
-    t0 = data.time
+    # Run trajectory once
+    for t in range(steps):
 
-    while viewer.is_running():
+        if not viewer.is_running():
+            break
 
-        for t in range(steps):
-
-            s = t / steps
-
-            q_interp = (1-s)*q_init + s*q_final  # simple linear interpolation
-
-            # Apply a simple sinusoidal control to joint 0
-            data.ctrl[0] = 1 * np.sin(0.25*np.pi * (data.time - t0))
-            
-            mujoco.mj_step(model, data)
-            viewer.sync()
+        s = t / steps
+        q_interp = (1 - s) * q_init + s * q_final
+        data.ctrl[:] = q_interp
         
+        mujoco.mj_step(model, data)
+        viewer.sync()
+
+    # Hold final position indefinitely
+    while viewer.is_running():
+        data.ctrl[:] = 0.0  # or q_final if using position control
         mujoco.mj_step(model, data)
         viewer.sync()
