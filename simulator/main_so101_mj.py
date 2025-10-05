@@ -9,7 +9,9 @@ from scripts.kinematics import *
 from scripts.dynamics import *
 
 
-# run from /controls folder directly: python -m simulator.main_so100_mj.py
+# run from /controls folder directly: python -m simulator.main_so101_mj
+
+# SO101 taken from: https://github.com/TheRobotStudio/SO-ARM100/tree/main
 
 
 ### INIT MUJOCO ###
@@ -18,16 +20,18 @@ from scripts.dynamics import *
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Construct relative path to URDF
-xml_path = os.path.join(script_dir, "..", "models", "so100", "xml", "so100.xml")
+xml_path = os.path.join(script_dir, "..", "models", "so101", "scene.xml") 
 print(xml_path)
 
 # Load the model
 model = mujoco.MjModel.from_xml_path(xml_path)
 data = mujoco.MjData(model)
 
+print("\nMUJOCO DATA:\n")
 print("Number of joints:", model.njnt)
 print("Number of actuators:", model.nu)
 print("Number of nq:", model.nq) # dimension of generalized coordinates (qpos) --> total DOF in the system
+print("Number of links:", model.nbody)
 print("Simulator sample time [s]: ", model.opt.timestep) # update frequency in the simulator equations
 
 # list joint names
@@ -44,6 +48,13 @@ actuator_names = [
 ]
 print("Actuator names:", actuator_names)
 
+# list link names
+link_names = [
+    mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, i)
+    for i in range(model.nbody)
+]
+print("Link names:", link_names)
+
 # current state
 qpos = data.qpos.copy()   # joint positions
 qvel = data.qvel.copy()   # joint velocities
@@ -57,7 +68,7 @@ print("qvel: ", qvel)
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Construct relative path to URDF
-urdf_path = os.path.join(script_dir, "..", "models", "so100", "urdf", "so100.urdf") 
+urdf_path = os.path.join(script_dir, "..", "models", "so101", "so101.urdf") 
 
 # Instantiate URDF loader
 urdf_loader = URDF_handler()
@@ -67,6 +78,7 @@ urdf_loader.load(urdf_path)
 robot_model = RobotModel(urdf_loader)
 
 # Info
+print("\nCONTROLS LIB DATA:\n")
 robot_model.print_model_properties()
 print("Number of joints: ", robot_model.get_n_joints())
 print("Number of links: ", robot_model.get_n_links())
@@ -74,24 +86,25 @@ print("Number of links: ", robot_model.get_n_links())
 
 ### SIMULATION INIT ###
 
-# Read initial joint state
-q_init = q_init = data.qpos.copy()
-q_init = np.array(q_init) 
-print("Start q: ", q_init)
+print("\nSIMULATION\n")
 
-# Get initial pose from Mujoco
+# Read initial joint state
+q_init = data.qpos.copy()
+q_init = np.array(q_init) 
+print("q_init [RAD]: ", q_init)
+print("q_init [DEG]: ", np.rad2deg(q_init))
 
 # Make sure the model state is up to date
 mujoco.mj_forward(model, data)
 
-# Get Mujoco body id for the end effector (replace "gripper" with your EE name)
-ee_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "gripper")
+# Get Mujoco body id for the end effector 
+ee_name_mj = "gripper" 
+ee_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, ee_name_mj)
+assert ee_body_id !=-1, (f"[ERROR] {ee_name_mj} is not a valid EE link name available in .xml file.")
 
 # Extract position and orientation
 current_pos = data.xpos[ee_body_id].copy()     # shape (3,)
 current_quat = data.xquat[ee_body_id].copy()   # shape (4,)
-
-# Convert quaternion to rotation matrix
 current_mat = np.zeros((3, 3))
 mujoco.mju_quat2Mat(current_mat.ravel(), current_quat)
 
@@ -99,41 +112,39 @@ mujoco.mju_quat2Mat(current_mat.ravel(), current_quat)
 T_start = np.eye(4)
 T_start[:3, :3] = current_mat
 T_start[:3, 3]  = current_pos
-
-print("T_start:\n", T_start)
+print("T_start Mujoco:\n", T_start)
 
 ### KINEMATICS ###
 
 # init
 kin = URDF_Kinematics()
 
-# get current joint positions (only movable joints, no fixed joints and no floating base pose) 
-# q_init = np.zeros(6)  # SO100
-print("q_init: ", np.rad2deg(q_init))
+# define ee target link name
+ee_name_cl = "gripper_link"
 
 # compute start pose
-T_start = kin.forward_kinematics(robot_model, q_init, target_link_name="gripper") # SO100
-print("\nT_start = \n", T_start)
+T_start = kin.forward_kinematics(robot_model, q_init[::-1], target_link_name=ee_name_cl) 
+print("\nT_start Lib:\n", T_start)
 
-# # Define relative goal pose SO100
-# T_goal = T_start.copy()
-# T_goal[:3, 3] += np.array([0.0, 0.0, 0.2])
-# print("\nT_goal = \n", T_goal)
-
-# Define absolute goal pose SO100
-T_goal = np.array([
-    [1.0, 0.0, 0.0,  0.0],
-    [0.0, 1.0, 0.0, -0.17],
-    [0.0, 0.0, 1.0,  0.37],
-    [0.0, 0.0, 0.0,  1.0]
-])
+# Define relative goal pose
+T_goal = T_start.copy()
+T_goal[:3, 3] += np.array([-0.2, -0.0, 0.13])
 print("\nT_goal = \n", T_goal)
 
+# # Define absolute goal pose
+# T_goal = np.array([
+#     [0.0721, -0.8863, -0.4575,  0.15],
+#     [0.0336,  0.4606, -0.887, 0.22],
+#     [0.9968,  0.0486,  0.063,  0.22],
+#     [0.0, 0.0, 0.0,  1.0]
+# ])
+# print("\nT_goal = \n", T_goal)
+
 # IK with internal interpolation
-q_final = kin.inverse_kinematics(robot_model, q_init, T_goal, target_link_name="gripper", use_orientation=True, k=0.8, n_iter=1) # SO100
+q_final = kin.inverse_kinematics(robot_model, q_init[::-1], T_goal, target_link_name=ee_name_cl, use_orientation=True, k=0.8, n_iter=1) 
 print("\nFinal joint angles = ", q_final)
 
-T_final = kin.forward_kinematics(robot_model, q_final, target_link_name="gripper")  # SO100
+T_final = kin.forward_kinematics(robot_model, q_final, target_link_name=ee_name_cl)  
 print("\nFinal pose direct kinematics = \n", T_final)
 
 print("\nerr_lin = ", RobotUtils.calc_lin_err(T_goal, T_final))
@@ -145,11 +156,16 @@ kin.check_joint_limits(robot_model, q_final)
 
 ### SIMULATION INIT ###
 
-sim_time = 2.0  # seconds
+sim_time = 5.0  # seconds
 dt = model.opt.timestep
 steps = int(sim_time / dt)
 
+
+
 with mujoco.viewer.launch_passive(model, data) as viewer:
+
+    # import time
+    # time.sleep(4)
 
     # Run trajectory once
     for t in range(steps):
@@ -158,7 +174,7 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
             break
 
         s = t / steps
-        q_interp = (1 - s) * q_init + s * q_final
+        q_interp = (1 - s) * q_init + s * q_final[::-1]
         data.ctrl[:] = q_interp
         
         mujoco.mj_step(model, data)
@@ -166,6 +182,6 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
 
     # Hold final position indefinitely
     while viewer.is_running():
-        data.ctrl[:] = 0.0  # or q_final if using position control
+        data.ctrl[:] = q_interp  
         mujoco.mj_step(model, data)
         viewer.sync()
