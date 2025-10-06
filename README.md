@@ -314,7 +314,7 @@ $$
 \end{bmatrix}
 $$
 
-where$\exp([\hat{a}]\,q)$ represents the rotation matrix using the exponential map (Rodrigues’ formula).
+where $\exp([\hat{a}]\,q)$ represents the rotation matrix using the exponential map (Rodrigues’ formula).
 
 ### 4.3 Prismatic Joint
 
