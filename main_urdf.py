@@ -15,9 +15,6 @@ from scripts.dynamics import *
 # - urdfpy==0.0.22
 
 
-
-
-
 # 1) creare 2 metodi per IKINE_FULL (risultato finale diretto) e IKINE_STEP (risultati intermedi e devo fare loop nel main) + visualizza in pybullet
 # 2) riscrivi readme includendo urdf explanation 
 # 3) testa create env.yaml from scratch + fai merge
@@ -27,8 +24,6 @@ from scripts.dynamics import *
 # 4) investigare singolarità o moto strano o slerp orientation in pybullet con mia libreria
 # 5) testare DH dynamics su mujoco
 # 6) fare andare URDF dynamics su SO100
-
-
 
 
 

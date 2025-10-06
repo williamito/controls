@@ -9,11 +9,6 @@ from scripts.kinematics import *
 from scripts.dynamics import *
 
 
-# run from /controls folder directly: python -m simulator.main_so101_mj
-
-# SO101 taken from: https://github.com/TheRobotStudio/SO-ARM100/tree/main
-
-
 ### INIT MUJOCO ###
 
 # Get directory where this script is located

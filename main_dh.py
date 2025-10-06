@@ -74,9 +74,9 @@ dyn = RobotDynamics()
 
 # init parameters
 q = np.array([0.1, 0.2, 0.1, 0.2, 0.1]) 
-qdot = np.array([0.7, 0.7, 0.7, 0.7, 0.7]) # --> -0.6120  -7.6320  -3.2212   0.4416   0.1600 e qddot = 0
-qddot = np.array([0.7, 0.7, 0.7, 0.7, 0.7]) # --> -0.1444  -7.3537  -3.0630   0.4483   0.3428 e qdot != 0
-Fext = np.array([6.0, 5.0, 4.0, 3.0, 2.0, 1.0]) # expressed wrt n-frame --> 3.4263  -8.6711  -5.0112  -2.1744   1.3428 e qdot, qddot != 0
+qdot = np.array([0.7, 0.7, 0.7, 0.7, 0.7]) # --> tau = -0.6120  -7.6320  -3.2212   0.4416   0.1600 e qddot = 0
+qddot = np.array([0.7, 0.7, 0.7, 0.7, 0.7]) # --> tau = -0.1444  -7.3537  -3.0630   0.4483   0.3428 e qdot != 0
+Fext = np.array([6.0, 5.0, 4.0, 3.0, 2.0, 1.0]) # expressed wrt n-frame --> tau = 3.4263  -8.6711  -5.0112  -2.1744   1.3428 e qdot, qddot != 0
 
 # inverse dynamics
 torques = dyn.inverse_dynamics(robot_model, q, qdot, qddot, Fext = Fext) 
