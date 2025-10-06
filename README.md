@@ -32,6 +32,9 @@ controls/
 ├─ simulator/                   ← MuJoCo-based simulation tools
 │   ├─ main_so101_mj.py         ← MuJoCo simulation for SO100 robot
 │
+├─ tests/                       ← Testing 
+│   ├─ unit_tests.py            ← Test DH methods via unit testing
+│
 ├─ main_dh.py                   ← Main script for DH-based kinematics/dynamics
 ├─ main_urdf.py                 ← Main script for URDF-based kinematics
 │
@@ -43,9 +46,8 @@ controls/
 Clone repo and go inside folder:
 
 ```bash
-mkdir controls
-cd controls
 git clone https://github.com/Argo-Robot/controls
+cd controls
 ```
 
 Download necessary libs by using conda environment:
@@ -53,6 +55,7 @@ Download necessary libs by using conda environment:
 ```
 conda env create -f environment.yml
 conda activate controls_env
+pip install --upgrade --force-reinstall networkx==2.8.8
 ```
 
 To run `main_dh.py` or `main_urdf.py` just type:
