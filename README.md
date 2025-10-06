@@ -1,19 +1,105 @@
 # Kinematics & Dynamics
 
-This library provides an implementation of kinematics and dynamics modules for robotic manipulators using Denavit–Hartenberg (DH) parameters. It supports:
+This library provides a unified framework for **robot kinematics and dynamics** that supports both the **Denavit–Hartenberg (DH)** and **URDF (Unified Robot Description Format)** representations.
 
-- **Forward kinematics**
-- **Inverse kinematics via Damped Least Squares Inverse Jacobian**
-- **Pose interpolation (position + orientation) using SLERP**
-- **Full Inverse Dynamics via Recursive Newton-Euler equations**
+The library implements the following features:
 
-An example configuration is included for the SO100 robotic arm from [LeRobot](https://github.com/huggingface/lerobot), but the module is adaptable to any N-dof robot defined by standard DH parameters.
+- **Forward kinematics**: compute the end-effector pose from joint positions  
+- **Inverse kinematics**: via Damped Least Squares (DLS) inverse Jacobian  
+- **Pose interpolation**: smooth Cartesian motion using SLERP (Spherical Linear Interpolation)  
+- **Inverse dynamics**: via Recursive Newton–Euler algorithm (RNEA)  
+
+An example setup is provided for the **SO101** robotic arm from [LeRobot](https://github.com/huggingface/lerobot), while the models (`.xml`, `.urdf`) are adapted from [TheRobotStudio](https://github.com/TheRobotStudio/SO-ARM100/commit/385e8d7c68e24945df6c60d9bd68837a4b7411ae). The modular structure allows you to easily replace the SO101 with any custom N-DOF manipulator.
+
+## 1. Project structure
+
+### 1.1 Folder structure
+
+```bash
+controls/
+│
+├─ environment.yml              ← Conda environment and dependencies
+│
+├─ models/                      ← Robot models and assets
+│   ├─ so101/                   ← .xml and .urdf files 
+│
+├─ scripts/                     ← Core libraries (URDF + DH utilities)
+│   ├─ kinematics.py            ← Forward and inverse kinematics functions
+│   ├─ dynamics.py              ← Robot dynamics
+│   ├─ model.py                 ← URDF/DH loading utilities
+│   ├─ utils.py                 ← General-purpose robot math utilities
+│
+├─ simulator/                   ← MuJoCo-based simulation tools
+│   ├─ main_so101_mj.py         ← MuJoCo simulation for SO100 robot
+│
+├─ main_dh.py                   ← Main script for DH-based kinematics/dynamics
+├─ main_urdf.py                 ← Main script for URDF-based kinematics
+│
+└─ README.md                    ← Project documentation 
+```
+
+### 1.2 Setup conda environment and run the code
+
+Clone repo and go inside folder:
+
+```bash
+mkdir controls
+cd controls
+git clone https://github.com/Argo-Robot/controls
+```
+
+Download necessary libs by using conda environment:
+
+```
+conda env create -f environment.yml
+conda activate controls_env
+```
+
+To run `main_dh.py` or `main_urdf.py` just type:
+
+```bash
+cd controls
+python main_dh.py
+python main_urdf.py
+```
+
+To run `main_so101_mj.py` just type:
+
+```bash
+cd controls
+python -m simulator.main_so101_mj
+```
+
+### 1.3 Example in `main_dh.py`
+
+- Initialize the `so100` robot model
+- Transform mechanical angles in DH angles
+- Define a goal pose `T_goal`
+- Trajectory interpolation from start to goal pose.
+- Solves IK with only position tracking
+- Transform DH angles in mechanical angles
+- Check mechanical angles are within their physical limits
+
+- Initialize $q$, $\dot q$, $\ddot q$, $F_{ext}$
+- Compute corresponding joint torques
+- Compute B, C, g matrices for the dynamic model
+- Transform a force from one frame to another
+
+### 1.4 Example in `main_so101_mj.py`
+
+- Load the `so101` robot model and load it also in Mujoco
+- Define an initial joint configuration `q_init` (current joint state from Mujoco) and a goal pose `T_goal`
+- Trajectory interpolation from start to goal pose.
+- Solves IK step and simulate current step update in Mujoco
+- Check joint angles are within their physical limits
+- Visualize entire trajectory simulation through Mujoco
 
 ---
 
-## Classes
+## 2. Modules
 
-### `Robot`
+### 2.1 `Robot`
+
 Defines a robot model from a predefined set (e.g. `"so100"`), with attributes and methods:
 
 - `dh_table`: DH table as a list of $[ \theta, d, a, \alpha ]$ entries.
@@ -30,19 +116,24 @@ Defines a robot model from a predefined set (e.g. `"so100"`), with attributes an
 
 ---
 
-### `RobotUtils`
+### 2.2 `Utils`
+
 Collection of static methods:
-- `calc_dh_matrix(dh, θ)`: returns the homogeneous transform using standard DH convention.
+
+- `inv_homog_mat(T)`: efficiently inverts a 4x4 transformation.
 - `calc_lin_err(T1, T2)`: linear position error.
 - `calc_ang_err(T1, T2)`: angular error.
-- `inv_homog_mat(T)`: efficiently inverts a 4x4 transformation.
+- `calc_dh_matrix(dh, θ)`: returns the homogeneous transform using standard DH convention.
+- `calc_urdf_joint_transform(joint, q)`: compose parentTjoint + jointTchild(q).
+- `calc_urdf_joint_transform_motion_only(joint, q)`: compose jointTchild(q) only.
 - `calc_geom_jac(...)`: compute geometrical Jacobian wrt base-frame.
 - `calc_geom_jac_n(...)`: compute geometrical jacobian wrt n-frame.
 - `dls_right_pseudoinv(...)`: Damped Least Squares pseudoinverse.
+- `dls_right_pseudoinv_weighted(J, W, lambda_val=0.001)`: compute Damped Least Squares Right-Pseudo-Inverse weighted.
 
 ---
 
-### `RobotKinematics`
+### 2.3 `RobotKinematics`
 
 Main class for computing kinematics:
 
@@ -82,48 +173,7 @@ Where:
 
 ---
 
-## DH Frames
-
-DH (Denavit–Hartenberg) frames provide a systematic and compact way to model the kinematics of robotic arms. Each joint and link transformation is represented by a standard set of parameters, allowing for consistent and scalable computation of **forward kinematics, inverse kinematics and Jacobians**.
-
-Each robot uses the **standard DH convention**:
-
-- $\theta$: variable joint angle (actuated)
-- $d, a, \alpha$: constant link parameters defined by the mechanical structure
-
-Once the DH table is ready, the homogeneous transformation from frame( i-1 ) to frame( i ) is:
-
-$$
-^{i-1}A_{i} =
-\begin{bmatrix}
-\cos\theta & -\sin\theta\cos\alpha & \sin\theta\sin\alpha & a\cos\theta \\
-\sin\theta & \cos\theta\cos\alpha & -\cos\theta\sin\alpha & a\sin\theta \\
-0 & \sin\alpha & \cos\alpha & d \\
-0 & 0 & 0 & 1
-\end{bmatrix}
-$$
-
-Finally, the forward kinematics is computed as:
-
-$$
-^{base}T_{n}(q) = A_1(\theta_1) \cdot A_2(\theta_2) \cdot \dots \cdot A_n(\theta_n)
-$$
-
-### SO100 DH Frames
-
-<p align="center">
-  <img src="./images/dh1.png" alt="DH"/><br>
-  <em>Figure: DH frames and DH table computed for the SO100 robotic arm</em>
-</p>
-
-<p align="center">
-  <img src="./images/dh2.png" alt="DH"/><br>
-  <em>Figure: DH angles Vs mechanical angles</em>
-</p>
-
----
-
-### `RobotDynamics`
+### 2.4 `RobotDynamics`
 
 Main class for computing **inverse dynamics** and retrieving dynamic model components of a serial-link manipulator:
 
@@ -177,35 +227,138 @@ Express a Cartesian force $F_{ext} \in \mathbb{R}^6$ from a source frame to a ta
 
 ---
 
-## Example in `main.py`
+## 3. DH representation
 
-- Initialize the `"so100"` robot model
-- Transform mechanical angles in DH angles
-- Define a goal pose worldTtool
-- Solves IK with only position tracking
-- Prints joint angles and final pose with direct kinematics
-- Transform DH angles in mechanical angles
-- Check mechanical angles are within their physical limits
+DH (Denavit–Hartenberg) frames provide a systematic and compact way to model the kinematics of robotic arms. Each joint and link transformation is represented by a standard set of parameters, allowing for consistent and scalable computation of **forward kinematics, inverse kinematics and Jacobians**.
 
-- Initialize $q$, $\dot q$, $\ddot q$, $F_{ext}$
-- Compute corresponding joint torques
-- Compute B, C, g matrices for the dynamic model
-- Transform a force from one frame to another
+Each robot uses the **standard DH convention**:
+
+- $\theta$: variable joint angle (actuated)
+- $d, a, \alpha$: constant link parameters defined by the mechanical structure
+
+Once the DH table is ready, the homogeneous transformation from frame( i-1 ) to frame( i ) is:
+
+$$
+^{i-1}A_{i} =
+\begin{bmatrix}
+\cos\theta & -\sin\theta\cos\alpha & \sin\theta\sin\alpha & a\cos\theta \\
+\sin\theta & \cos\theta\cos\alpha & -\cos\theta\sin\alpha & a\sin\theta \\
+0 & \sin\alpha & \cos\alpha & d \\
+0 & 0 & 0 & 1
+\end{bmatrix}
+$$
+
+Finally, the forward kinematics is computed as:
+
+$$
+^{base}T_{n}(q) = A_1(\theta_1) \cdot A_2(\theta_2) \cdot \dots \cdot A_n(\theta_n)
+$$
+
+<p align="center">
+  <img src="./images/dh1.png" alt="DH"/><br>
+  <em>Figure: DH frames and DH table computed for the SO100 robotic arm</em>
+</p>
+
+<p align="center">
+  <img src="./images/dh2.png" alt="DH"/><br>
+  <em>Figure: DH angles Vs mechanical angles</em>
+</p>
 
 ---
 
-## Full contributions
+## 4. URDF representation
 
-### Kinematics:
+URDF (Unified Robot Description Format) provides a structured way to describe the **geometry and kinematics** of a robot. Each joint defines a rigid-body transformation between a **parent link** and a **child link**, capturing both fixed offsets and variable motion.
 
-- Forward kinematics using DH tables
-- Jacobian computation using DH tables
+Each `<joint>` element includes:
+
+- `<origin xyz="x y z" rpy="r p y">`: specifies the **fixed transformation** from the parent link to the joint frame.  
+  - `xyz` defines the translation vector `[x, y, z]`  
+  - `rpy` defines the rotation about the roll–pitch–yaw axes `[r, p, y]` (in radians)
+- `<axis xyz="a_x a_y a_z">`: specifies the **motion axis** (rotation or translation) expressed in the joint frame.
+- `<type>`: determines the motion type:
+  - `revolute`: rotation around the axis  
+  - `prismatic`: translation along the axis  
+  - `fixed`: no motion  
+
+### 4.1 Transformation Composition
+
+The homogeneous transformation from the **parent link** frame to the **child link** frame is defined as:
+
+$$
+^{parent}T_{child}(q) = ^{parent}T_{joint} \cdot ^{joint}T_{child}(q)
+$$
+
+where:
+
+$$
+^{parent}T_{joint} =
+\begin{bmatrix}
+R_{rpy} & p_{xyz} \\
+0 & 1
+\end{bmatrix}
+$$
+
+- $R_{rpy}$ is the rotation matrix obtained from the roll–pitch–yaw angles.  
+- $p_{xyz} = [x, y, z]^T$ is the translation vector.
+
+### 4.2 Revolute Joint
+
+For a **revolute** joint, the relative motion between the joint and the child link is a rotation of angle $q$ about the given axis $a = [a_x, a_y, a_z]^T$:
+
+$$
+^{joint}T_{child}(q) =
+\begin{bmatrix}
+\exp([\hat{a}]\,q) & 0 \\
+0 & 1
+\end{bmatrix}
+$$
+
+where \( \exp([\hat{a}]\,q) \) represents the rotation matrix using the exponential map (Rodrigues’ formula).
+
+### 4.3 Prismatic Joint
+
+For a **prismatic** joint, the motion corresponds to a translation of magnitude $q$ along the joint axis $a = [a_x, a_y, a_z]^T$:
+
+$$
+^{joint}T_{child}(q) =
+\begin{bmatrix}
+I_{3} & a\,q \\
+0 & 1
+\end{bmatrix}
+$$
+
+### 4.4 Fixed Joint
+
+For a **fixed** joint (no motion), the transformation is purely static:
+
+$$
+^{joint}T_{child}(q) = I_{4}
+$$
+
+### 4.5 Summary
+
+The complete forward kinematic chain in URDF can thus be expressed as the product of all joint transforms from the base to the end-effector:
+
+$$
+^{base}T_{ee}(q) = \prod_{i=1}^{N} \ ^{parent_i}T_{child_i}(q_i)
+$$
+
+where each transformation includes both the fixed origin offset and the variable motion due to the joint’s type.
+
+---
+
+## 5. Full contributions
+
+### 5.1 Kinematics:
+
+- Forward kinematics using DH/URDF
+- Jacobian computation using DH/URDF
 - Inverse kinematics using Jacobian and dump-least square method to avoid singularities
 - Pose interpolation: linear (position) + SLERP (orientation)
-- DH angles to mechanical angles conversion (and viceversa)
 - Out of Bound joint position limits checker
 
-### Dynamics:
+### 5.2 Dynamics (DH representation only):
 
 - Inverse Dynamics via Recursive Newton-Euler equations
 - Estimate M, C, g of the full robot dynamic model
