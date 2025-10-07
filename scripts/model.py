@@ -138,7 +138,7 @@ class DH_loader(RobotLoader):
     
     
     
-class URDF_handler(RobotLoader):
+class URDF_loader(RobotLoader):
     
     """Child class: load robot model using URDF file"""
     
@@ -155,8 +155,6 @@ class URDF_handler(RobotLoader):
         self.LINK_MASS = []
         self.LINK_COM = []
         self.LINK_INERTIA = []
-        self.AXIS = []
-        self.ORIGIN = []
         
         # add link mass properties
         for link in self.robot.links:

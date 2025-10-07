@@ -101,11 +101,19 @@ python -m simulator.main_so101_mj
 
 ## 2. Modules
 
-### 2.1 `Robot`
+### 2.1 `Model`
 
-Defines a robot model from a predefined set (e.g. `"so100"`), with attributes and methods:
+This module defines a unified interface to load and describe a robot model, either from manual DH parameters or from a URDF file.
 
-- `dh_table`: DH table as a list of $[ \theta, d, a, \alpha ]$ entries.
+#### Main classes
+
+- **RobotLoader**: Base class defining shared attributes and methods for any robot description (DH or URDF).
+- **DH_loader**: Defines a robot model manually via Denavit–Hartenberg parameters.
+- **URDF_loader**: Loads a robot from a .urdf file using urdfpy.
+- **RobotModel**: High-level wrapper that unifies DH- and URDF-based models.
+
+#### Parameters
+
 - `link_mass`: link mass.
 - `link_com`: link CoM wrt frame $i$.
 - `link_inertia`: link inertia wrt frame $i$.
@@ -113,9 +121,14 @@ Defines a robot model from a predefined set (e.g. `"so100"`), with attributes an
 - `mech_joint_limits_up`: mechanical joint position limits upper bound
 - `worldTbase`: 4x4 homogeneous transform.
 - `nTtool`: 4x4 homogeneous transform.
+- `dh_table`: DH table as a list of $[ \theta, d, a, \alpha ]$ entries.
 - `from_dh_to_mech()`: DH angles to mechanical angles conversion.
-- `from_dh_to_mech()`: mechanical angles to DH angles conversion.
-- `check_joint_limits()`: check joint limits.
+- `from_mech_to_dh()`: mechanical angles to DH angles conversion.
+- `root_link`: root link in the chain based on URDF description.
+
+#### Note
+
+`from_dh_to_mech()`, `from_mech_to_dh()`, `nTtool`, `worldTbase` may need to be modified based on your SO100 robot assembly setup.
 
 ---
 
@@ -136,7 +149,7 @@ Collection of static methods:
 
 ---
 
-### 2.3 `RobotKinematics`
+### 2.3 `kinematics`
 
 Main class for computing kinematics:
 
@@ -153,7 +166,8 @@ $$
 ---
 
 #### `inverse_kinematics(...)`
-Computes inverse kinematics using iterative pose interpolation and inverse Jacobian method. Optional orientation tracking.
+
+Computes inverse kinematics using pose interpolation and inverse Jacobian method. Optional orientation tracking.
 
 $$
 q_{k+1} = q_k + J^{\dagger} \cdot K \cdot e
@@ -172,13 +186,15 @@ Where:
 
 - `_forward_kinematics_baseTn`: computes fkine from base-frame to n-frame.
 - `_inverse_kinematics_step_baseTn`: performs one step of iterative IK.
-- `_interp_init`, `_interp_execute`: Pose interpolation (position + orientation).
+- `_interp_init`, `_interp_execute`: pose interpolation (position + orientation).
+- `calc_geom_jacobian()`: compute geometric Jacobian.
+- `check_joint_limits()`: check joint limits.
 
 ---
 
-### 2.4 `RobotDynamics`
+### 2.4 `dynamics`
 
-Main class for computing **inverse dynamics** and retrieving dynamic model components of a serial-link manipulator:
+Main class (**available for DH only**) for computing inverse dynamics and retrieving dynamic model components of a serial-link manipulator:
 
 ---
 

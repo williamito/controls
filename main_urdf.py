@@ -5,13 +5,6 @@ from scripts.kinematics import *
 from scripts.dynamics import *
 
 
-
-# 1) creare 2 metodi per IKINE_FULL (risultato finale diretto) e IKINE_STEP (risultati intermedi e devo fare loop nel main) + visualizza in pybullet
-# 2) investigare singolarità o moto strano o slerp orientation in pybullet con mia libreria su nuovo branch in cui import 6axis robot
-
-
-
-
 ## URDF Loader ##
 
 print("\n\nLOADING ROBOT MODEL:\n\n")
@@ -23,7 +16,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 urdf_path = os.path.join(script_dir, "models", "so101", "so101.urdf") 
 
 # Instantiate URDF loader
-urdf_loader = URDF_handler()
+urdf_loader = URDF_loader()
 urdf_loader.load(urdf_path)
 
 # Wrap in RobotModel
