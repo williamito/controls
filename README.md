@@ -383,6 +383,15 @@ where each transformation includes both the fixed origin offset and the variable
 - Estimate M, C, g of the full robot dynamic model
 - Transform forces between frames
 
+---
+
+## 6. Known issues
+
+- In `main_dh.py`, the methods `convert_dh_to_mech()` and `convert_mech_to_dh()` may need to be adjusted depending on your current SO100 assembly setup.
+- MuJoCo and the URDF loader may load joint names in a different order. Joint ordering must therefore be aligned manually. You can verify this by printing the joint names from both sources and comparing them visually. See `simulator/main_so101_mj.py` for a reference example.
+
+---
+
 ## License
 
 This project is licensed under the MIT License – see the [LICENSE](https://github.com/Argo-Robot/kinematics/blob/main/LICENSE) file for details.
