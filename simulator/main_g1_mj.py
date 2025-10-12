@@ -89,7 +89,6 @@ print("\nSIMULATION\n")
 model.opt.gravity[:] = 0
 data.qpos[:7] = np.array([0. ,   0. ,   0.793 ,  1. ,   0.   , 0. ,   0.])
 data.qvel[:6] = 0 # zero linear/angular base velocity
-data.qpos[7:] = data.qpos[7:] + 0.1 # DEBUG DKINE
 
 # add worldTbase as in xml notation
 robot_model.worldTbase[:3, 3] = np.array([0.0, 0.0, 0.793])
@@ -107,7 +106,7 @@ q = q_init[7:].copy()
 mujoco.mj_forward(model, data)
 
 # Get Mujoco body id for the end effector 
-ee_name_mj = "right_wrist_yaw_link" 
+ee_name_mj = "right_ankle_roll_link"
 ee_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, ee_name_mj)
 assert ee_body_id !=-1, (f"[ERROR] {ee_name_mj} is not a valid EE link name available in .xml file.")
 
@@ -129,7 +128,7 @@ print("T_start Mujoco:\n", T_start)
 kin = URDF_Kinematics()
 
 # define ee target link name
-ee_name_cl = "right_wrist_yaw_link"
+ee_name_cl = "right_ankle_roll_link"
 
 # compute start pose
 T_start = kin.forward_kinematics(robot_model, q, target_link_name=ee_name_cl) 
@@ -137,8 +136,8 @@ print("\nT_start Lib:\n", T_start)
 
 # Define relative goal pose (baseTn)
 T_goal = T_start.copy()
-T_goal[:3, 3] += np.array([0.2, 0.0, 0.2])
-# rot_rel = R.from_euler('zy', [90, 0], degrees=True).as_matrix()
+T_goal[:3, 3] += np.array([0.2, -0.1, 0.2])
+# rot_rel = R.from_euler('x', 90, degrees=True).as_matrix()
 # T_goal[:3, :3] = T_start[:3, :3] @ rot_rel # rotation wrt EE frame
 print("\nT_goal = \n", T_goal)
 
@@ -167,9 +166,6 @@ desired_baseTn = (RobotUtils.inv_homog_mat(robot_model.worldTbase)
 n_steps = kin._interp_init(kin._forward_kinematics_baseTn(robot_model, q, ee_name_cl), desired_baseTn, freq = 1.0/model.opt.timestep, trans_speed = 0.3, rot_speed = 0.3)
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
-
-    # import time
-    # time.sleep(4)
 
     # Run trajectory once
     for i in range(0, n_steps + 1):
