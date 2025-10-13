@@ -23,9 +23,9 @@ model = mujoco.MjModel.from_xml_path(xml_path)
 data = mujoco.MjData(model)
 
 print("\nMUJOCO DATA:\n")
-print("Number of joints:", model.njnt)
-print("Number of actuators:", model.nu)
-print("Number of nq:", model.nq) # dimension of generalized coordinates (qpos) --> total DOF in the system
+print("Number of joints:", model.njnt) # number of joints (in the kinematic tree)
+print("Number of actuators:", model.nu) # number of actuators (controls available)
+print("Number of nq:", model.nq) # number of generalized coordinates (qpos)
 print("Number of links:", model.nbody)
 print("Simulator sample time [s]: ", model.opt.timestep) # update frequency in the simulator equations
 
@@ -145,8 +145,13 @@ n_iter=50
 # urdf2mujoco conversion due to joint names different order
 q = q_init[::-1].copy()
 
+# I compute ikine with baseTn
+desired_baseTn = (RobotUtils.inv_homog_mat(robot_model.worldTbase)
+                    @ T_goal
+                    @ RobotUtils.inv_homog_mat(robot_model.nTtool))
+
 # init interpolator
-n_steps = kin._interp_init(kin._forward_kinematics_baseTn(robot_model, q, ee_name_cl), T_goal, freq = 1.0/model.opt.timestep, trans_speed = 0.3, rot_speed = 0.3)
+n_steps = kin._interp_init(kin._forward_kinematics_baseTn(robot_model, q, ee_name_cl), desired_baseTn, freq = 1.0/model.opt.timestep, trans_speed = 0.3, rot_speed = 0.3)
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
 
@@ -171,12 +176,14 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         mujoco.mj_step(model, data)
         viewer.sync()
 
+    print('Trajecotry completed!')
+    
     # Hold final position indefinitely
     while viewer.is_running():
 
         # check final error
         T_current = kin._forward_kinematics_baseTn(robot_model, q, ee_name_cl)
-        err_lin = RobotUtils.calc_lin_err(T_current, T_goal)
+        err_lin = RobotUtils.calc_lin_err(T_current, desired_baseTn)
         lin_error_norm = np.linalg.norm(err_lin)
         assert lin_error_norm < 1e-2, (f"[ERROR] Large position error ({lin_error_norm:.4f}). Check target reachability (position/orientation)")
 

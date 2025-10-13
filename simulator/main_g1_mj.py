@@ -27,9 +27,9 @@ model = mujoco.MjModel.from_xml_path(xml_path)
 data = mujoco.MjData(model)
 
 print("\nMUJOCO DATA:\n")
-print("Number of joints:", model.njnt)
-print("Number of actuators:", model.nu)
-print("Number of nq:", model.nq) # dimension of generalized coordinates (qpos) --> total DOF in the system
+print("Number of joints:", model.njnt) # number of joints (in the kinematic tree)
+print("Number of actuators:", model.nu) # number of actuators (controls available)
+print("Number of nq:", model.nq) # number of generalized coordinates (qpos)
 print("Number of links:", model.nbody)
 print("Simulator sample time [s]: ", model.opt.timestep) # update frequency in the simulator equations
 
