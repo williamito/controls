@@ -8,10 +8,10 @@ from scripts.model import *
 from scripts.kinematics import *
 from scripts.dynamics import *
 
-###############################################################################################################################
-# FP3 URDF files taken from: https://github.com/frankarobotics/franka_description/tree/4b8948e061c2ef8b2ea15d658cf35981c683f864
-# Franka Emika Panda XML files taken from: Mujoco Managerie
-###############################################################################################################################
+####################################################################################################################################################
+# FP3 URDF files: https://github.com/frankarobotics/franka_description/tree/4b8948e061c2ef8b2ea15d658cf35981c683f864
+# Franka Emika Panda XML files: https://github.com/google-deepmind/mujoco_menagerie/tree/7618485a6b874a1526bf0619f56fd6a45e5efe01/franka_emika_panda
+####################################################################################################################################################
 
 ### INIT MUJOCO ###
 
@@ -85,8 +85,8 @@ print("Number of links: ", robot_model.get_n_links())
 
 print("\nSIMULATION\n")
 
-# # add worldTbase as in xml notation
-# robot_model.worldTbase[:3, 3] = np.array([0.0, 0.0, 0.793])
+# Set a prescribed initial pose
+data.qpos = [0.0, -0.08, 0.0, -0.97, 0.0, 0.96, 0.8, 0.0, 0.0]
 
 # Read initial joint state
 q = data.qpos.copy()
@@ -128,8 +128,8 @@ print("\nT_start Lib:\n", T_start)
 
 # Define relative goal pose (baseTn)
 T_goal = T_start.copy()
-T_goal[:3, 3] += np.array([0.5, 0.0, -0.2])
-rot_rel = R.from_euler('z', 90, degrees=True).as_matrix()
+T_goal[:3, 3] += np.array([-0.3, 0.0, -0.20])
+rot_rel = R.from_euler('zx', [90, -90], degrees=True).as_matrix()
 T_goal[:3, :3] = T_start[:3, :3] @ rot_rel # rotation wrt EE frame
 print("\nT_goal = \n", T_goal)
 
@@ -174,6 +174,9 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         # get updated joint positions
         q = kin._inverse_kinematics_step_baseTn(robot_model, q, T_desired_interp, ee_name_cl, use_orientation, k, n_iter)
 
+        # raise an error in case joint limits are exceeded
+        kin.check_joint_limits(robot_model, q)
+
         # go back in Mujoco domain
         data.qpos[:] = q
 
@@ -192,6 +195,13 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         lin_error_norm = np.linalg.norm(err_lin)
         assert lin_error_norm < 1e-2, (f"[ERROR] Large position error ({lin_error_norm:.4f}). Check target reachability (position/orientation)")
         viewer.sync()
+
+
+
+
+
+
+
 
 
 

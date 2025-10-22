@@ -170,6 +170,9 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         # get updated joint positions
         q = kin._inverse_kinematics_step_baseTn(robot_model, q, T_desired_interp, ee_name_cl, use_orientation, k, n_iter)
 
+        # raise an error in case joint limits are exceeded
+        kin.check_joint_limits(robot_model, q)
+
         # go back in Mujoco domain
         data.ctrl[:] = q[::-1]
         

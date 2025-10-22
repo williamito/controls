@@ -12,6 +12,9 @@ from scripts.dynamics import *
 # URDF / XML files taken from: https://github.com/unitreerobotics/unitree_ros/tree/1ab5f1e22adeeef39b3a2171b56f99ccd9c0f149/robots/g1_description
 #################################################################################################################################################
 
+# Choose whether to move G1'arm (MOVE_UPPER_BODY = True) or G1's leg(MOVE_UPPER_BODY = False)
+MOVE_UPPER_BODY = False
+
 ### INIT MUJOCO ###
 
 # Get directory where this script is located
@@ -106,7 +109,7 @@ q = q_init[7:].copy()
 mujoco.mj_forward(model, data)
 
 # Get Mujoco body id for the end effector 
-ee_name_mj = "right_ankle_roll_link"
+ee_name_mj = "right_wrist_yaw_link" if MOVE_UPPER_BODY else "right_ankle_roll_link"
 ee_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, ee_name_mj)
 assert ee_body_id !=-1, (f"[ERROR] {ee_name_mj} is not a valid EE link name available in .xml file.")
 
@@ -128,27 +131,24 @@ print("T_start Mujoco:\n", T_start)
 kin = URDF_Kinematics()
 
 # define ee target link name
-ee_name_cl = "right_ankle_roll_link"
+ee_name_cl = "right_wrist_yaw_link" if MOVE_UPPER_BODY else "right_ankle_roll_link"
 
 # compute start pose
 T_start = kin.forward_kinematics(robot_model, q, target_link_name=ee_name_cl) 
 print("\nT_start Lib:\n", T_start)
 
 # Define relative goal pose (baseTn)
-T_goal = T_start.copy()
-T_goal[:3, 3] += np.array([0.2, -0.1, 0.2])
-# rot_rel = R.from_euler('x', 90, degrees=True).as_matrix()
-# T_goal[:3, :3] = T_start[:3, :3] @ rot_rel # rotation wrt EE frame
-print("\nT_goal = \n", T_goal)
-
-# # Define absolute goal pose (baseTn)
-# T_goal = np.array([
-#     [0.0721, -0.8863, -0.4575,  0.15],
-#     [0.0336,  0.4606, -0.887, 0.22],
-#     [0.9968,  0.0486,  0.063,  0.22],
-#     [0.0, 0.0, 0.0,  1.0]
-# ])
-# print("\nT_goal = \n", T_goal)
+if (MOVE_UPPER_BODY):
+    
+    T_goal = T_start.copy()
+    T_goal[:3, 3] += np.array([0.2, -0.1, 0.25])
+    rot_rel = R.from_euler('zy', [90,-90], degrees=True).as_matrix()
+    T_goal[:3, :3] = T_start[:3, :3] @ rot_rel # rotation wrt EE frame
+    print("\nT_goal = \n", T_goal)
+else:
+    T_goal = T_start.copy()
+    T_goal[:3, 3] += np.array([0.2, -0.1, 0.2])
+    print("\nT_goal = \n", T_goal)
 
 ### SIMULATION START ###
 
@@ -167,6 +167,9 @@ n_steps = kin._interp_init(kin._forward_kinematics_baseTn(robot_model, q, ee_nam
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
 
+    import time
+    time.sleep(4)
+
     # Run trajectory once
     for i in range(0, n_steps + 1):
 
@@ -178,6 +181,9 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
 
         # get updated joint positions
         q = kin._inverse_kinematics_step_baseTn(robot_model, q, T_desired_interp, ee_name_cl, use_orientation, k, n_iter)
+
+        # raise an error in case joint limits are exceeded
+        kin.check_joint_limits(robot_model, q)
 
         # go back in Mujoco domain
         data.qpos[7:] = q
@@ -200,3 +206,11 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
 
 
 
+# # To move robot through the GUI only
+#
+# with mujoco.viewer.launch(model, data) as viewer:
+
+#     while viewer.is_running():
+#         # force kinematics positions, no need to update dynamics with: mujoco.mj_step(model, data)
+#         mujoco.mj_forward(model, data)
+#         viewer.sync()

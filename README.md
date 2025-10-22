@@ -9,7 +9,7 @@ The library implements the following features:
 - **Pose interpolation**: smooth Cartesian motion using SLERP (Spherical Linear Interpolation)  
 - **Inverse dynamics**: via Recursive Newton–Euler algorithm (RNEA)  
 
-An example setup is provided for the **SO101** robotic arm from [LeRobot](https://github.com/huggingface/lerobot), while the models (`.xml`, `.urdf`) are adapted from [TheRobotStudio](https://github.com/TheRobotStudio/SO-ARM100/commit/385e8d7c68e24945df6c60d9bd68837a4b7411ae). The modular structure allows you to easily replace the SO101 with any custom N-DOF manipulator.
+An example setup is provided for the **SO101** robotic arm from [LeRobot](https://github.com/huggingface/lerobot), while the models (`.xml`, `.urdf`) are obtained from [TheRobotStudio](https://github.com/TheRobotStudio/SO-ARM100/tree/385e8d7c68e24945df6c60d9bd68837a4b7411ae/Simulation/SO101). The modular structure allows you to easily replace the SO101 with any custom N-DOF manipulator.
 
 ## 1. Project structure
 
@@ -31,7 +31,9 @@ controls/
 │
 ├─ simulator/                   ← MuJoCo-based simulation tools
 │   ├─ main_so101_mj.py         ← MuJoCo simulation for SO100 robot
-│
+│   ├─ main_fp3_mj.py           ← MuJoCo simulation for Fanka Emika Panda robot
+│   ├─ main_g1_mj.py            ← MuJoCo simulation for G1 robot
+│   
 ├─ tests/                       ← Testing 
 │   ├─ unit_tests.py            ← Test DH methods via unit testing
 │
@@ -73,7 +75,7 @@ cd controls
 python -m simulator.main_so101_mj
 ```
 
-### 1.3 Example in `main_dh.py`
+### 1.3 Example in `main_dh.py` 
 
 - Initialize the `so100` robot model
 - Transform mechanical angles in DH angles
@@ -82,7 +84,6 @@ python -m simulator.main_so101_mj
 - Solves IK with only position tracking
 - Transform DH angles in mechanical angles
 - Check mechanical angles are within their physical limits
-
 - Initialize $q$, $\dot q$, $\ddot q$, $F_{ext}$
 - Compute corresponding joint torques
 - Compute B, C, g matrices for the dynamic model
@@ -186,7 +187,7 @@ Where:
 
 - `_forward_kinematics_baseTn`: computes fkine from base-frame to n-frame.
 - `_inverse_kinematics_step_baseTn`: performs one step of iterative IK.
-- `_interp_init`, `_interp_execute`: pose interpolation (position + orientation).
+- `_interp_init`, `_interp_execute`: pose interpolation (position + orientation via SLERP).
 - `calc_geom_jacobian()`: compute geometric Jacobian.
 - `check_joint_limits()`: check joint limits.
 

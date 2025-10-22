@@ -2,7 +2,6 @@ import copy
 import numpy as np
 from enum import Enum
 from scipy.spatial.transform import Rotation as R
-from scipy.spatial.transform import Slerp
 
 from scripts.utils import *
 
@@ -114,11 +113,13 @@ class RobotKinematics:
     def _interp_init(self, T_start, T_final, freq = 100, trans_speed = 0.1, rot_speed = 0.5):
         
         """Initialize interpolation parameters"""
-        
+
         self.t_start = T_start[:3, 3]
         self.t_final = T_final[:3, 3]
         R_start = T_start[:3, :3]
         R_final = T_final[:3, :3]
+        self.q_start = R.from_matrix(R_start).as_quat() 
+        self.q_final = R.from_matrix(R_final).as_quat()  
 
         # linear distance
         trans_dist = RobotUtils.calc_distance(self.t_final, self.t_start)
@@ -133,10 +134,24 @@ class RobotKinematics:
         total_time = max(t_trans, t_rot)
         self.n_steps = int(np.ceil(freq*total_time))
 
-        # SLERP for orientation
-        times = [0, 1]
-        rotations = R.from_matrix([R_start, R_final])
-        self.slerp = Slerp(times, rotations)
+        # normalize quaternions
+        self.q_start = self.q_start / np.linalg.norm(self.q_start)
+        self.q_final = self.q_final / np.linalg.norm(self.q_final)
+
+        # check angle between the two quaternions
+        dot = np.dot(self.q_start, self.q_final)
+
+        # enforce shortest path for SLERP
+        if np.dot(self.q_start, self.q_final) < 0.0:
+            self.q_final = -self.q_final  
+            dot = -dot
+
+        # clamp to avoid NaNs
+        dot = np.clip(dot, -1.0, 1.0)
+
+        # compute angle
+        self.theta = np.arccos(dot)
+        self.sin_theta = np.sin(self.theta)
 
         return self.n_steps
     
@@ -151,8 +166,21 @@ class RobotKinematics:
         else:
             s = i / self.n_steps  # compute current step
 
+        # interpolate position
         t_interp = (1 - s) * self.t_start + s * self.t_final
-        R_interp = self.slerp(s).as_matrix()
+        
+        # interpolate orientation with SLERP (handle near-zero rotation difference where sin_theta ≈ 0)
+        if np.isclose(self.sin_theta, 0.0):
+            q_interp = self.q_final
+        else:
+            theta_t = self.theta * s
+            w0 = np.sin(self.theta - theta_t) / self.sin_theta
+            w1 = np.sin(theta_t) / self.sin_theta
+            q_interp = w0 * self.q_start + w1 * self.q_final
+
+        # normalize
+        q_interp = q_interp / np.linalg.norm(q_interp)
+        R_interp = R.from_quat(q_interp).as_matrix()
 
         # compute current setpoint
         T_interp = np.eye(4)

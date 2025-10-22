@@ -63,6 +63,43 @@ class TestKinematics(unittest.TestCase):
         q_dh = self.robot.convert_mech_to_dh(q_mech)
         assert np.allclose(q_dh, expected_dh, atol=1e-5), f"Expected {expected_dh}, got {q_dh}"
 
+    def test_interpolator_slerp(self):
+        "test SLERP interpolation with goal orientation triggering dot(q0,q1) < 0"
+        
+        # helper to create a homogeneous transform from translation + rotation
+        def make_transform(t, rot_matrix):
+            T = np.eye(4)
+            T[:3, :3] = rot_matrix
+            T[:3, 3] = t
+            return T
+
+        # define start and goal poses
+        T_start = make_transform(
+            t=np.array([0.0, 0.0, 0.0]),
+            rot_matrix=np.eye(3)
+        )
+        T_goal = make_transform(
+            t=np.array([0.5, 0.2, 0.3]),   
+            rot_matrix = R.from_rotvec(np.pi * np.array([-1, 0, 0])).as_matrix()
+        )
+
+        # initialize interpolator
+        n_steps = self.kin._interp_init(T_start, T_goal, freq=100, trans_speed=0.1, rot_speed=0.5)
+
+        # collect interpolated poses
+        interpolated_poses = []
+        for i in range(n_steps + 1):
+            T_interp = self.kin._interp_execute(i)
+            interpolated_poses.append(T_interp)
+
+        # extract rotation vectors
+        rvecs = [R.from_matrix(T[:3, :3]).as_rotvec() for T in interpolated_poses]
+        rvecs = np.array(rvecs) # N,3
+
+        # print max angular jump between steps
+        angular_jumps = np.linalg.norm(np.diff(rvecs, axis=0), axis=1)
+        assert np.max(angular_jumps) < 1e-2, f"Got great jump during orientation interpolation {np.max(angular_jumps)}" 
+
 
 if __name__ == "__main__":
     unittest.main()
