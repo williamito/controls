@@ -155,8 +155,8 @@ n_steps = kin._interp_init(kin._forward_kinematics_baseTn(robot_model, q, ee_nam
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
 
-    # import time
-    # time.sleep(4)
+    import time
+    time.sleep(3)
 
     # Run trajectory once
     for i in range(0, n_steps + 1):

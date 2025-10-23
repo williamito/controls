@@ -1,5 +1,7 @@
 # Kinematics & Dynamics
 
+![Robots Simulation](images/robot.gif)
+
 This library provides a unified framework for **robot kinematics and dynamics** that supports both the **Denavit–Hartenberg (DH)** and **URDF (Unified Robot Description Format)** representations.
 
 The library implements the following features:
