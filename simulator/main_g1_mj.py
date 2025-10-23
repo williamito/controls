@@ -163,12 +163,12 @@ desired_baseTn = (RobotUtils.inv_homog_mat(robot_model.worldTbase)
                     @ RobotUtils.inv_homog_mat(robot_model.nTtool))
 
 # init interpolator
-n_steps = kin._interp_init(kin._forward_kinematics_baseTn(robot_model, q, ee_name_cl), desired_baseTn, freq = 1.0/model.opt.timestep, trans_speed = 0.3, rot_speed = 0.3)
+n_steps = kin._interp_init(kin._forward_kinematics_baseTn(robot_model, q, ee_name_cl), desired_baseTn, freq = 1.0/model.opt.timestep, trans_speed = 0.34, rot_speed = 0.3)
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
 
     import time
-    time.sleep(4)
+    time.sleep(3)
 
     # Run trajectory once
     for i in range(0, n_steps + 1):
