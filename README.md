@@ -395,6 +395,15 @@ where each transformation includes both the fixed origin offset and the variable
 
 ---
 
+## 7. References
+
+- **B. Siciliano, L. Sciavicco, L. Villani, G. Oriolo (2009)**: *Robotics: Modelling, Planning and Control*
+- **P.I. Corke (2017)**: [*A Robotics Toolbox for MATLAB*](https://petercorke.com/toolboxes/robotics-toolbox/)
+- **Samuel R. Buss (2009)**: [*Inverse Kinematics with Pseudoinverse and Damped Least Squares methods*](https://www.cs.cmu.edu/~15464-s13/lectures/lecture6/iksurvey.pdf)
+- **Jin S. Ahn, Won J. Chung**: [SLERP Interpolation for Orientation](https://worldcomp-proceedings.com/proc/p2011/CSC3066.pdf)
+
+---
+
 ## License
 
 This project is licensed under the MIT License – see the [LICENSE](https://github.com/Argo-Robot/kinematics/blob/main/LICENSE) file for details.
